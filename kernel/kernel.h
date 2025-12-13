@@ -8,7 +8,7 @@ struct sbiret {
 
 #define PANIC(fmt, ...)                                                        \
   do {                                                                         \
-    printf("PANIC: %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);      \
+    kprintf("PANIC: %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);     \
     while (1) {                                                                \
     }                                                                          \
   } while (0)
@@ -87,3 +87,4 @@ struct process {
 
 paddr_t alloc_pages(uint32_t n);
 void putchar(char ch);
+int kprintf(const char *fmt, ...);
