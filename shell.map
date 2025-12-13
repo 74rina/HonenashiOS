@@ -1,7 +1,7 @@
      VMA      LMA     Size Align Out     In      Symbol
        0        0  1000000     1 . = 0x1000000
  1000000  1000000      426     2 .text
- 1000000  1000000        e     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.text.start)
+ 1000000  1000000        e     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.text.start)
  1000000  1000000        0     1                 .L0 
  1000000  1000000        0     1                 .L0 
  1000000  1000000        0     1                 $x
@@ -9,7 +9,7 @@
  1000000  1000000        e     1                 start
  100000e  100000e        0     1                 .L0 
  100000e  100000e        0     1                 .L0 
- 100000e  100000e      140     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.text)
+ 100000e  100000e      140     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.text)
  100000e  100000e        0     1                 .L0 
  100000e  100000e        0     1                 .L0 
  100000e  100000e        0     1                 $x
@@ -102,7 +102,7 @@
  100014e  100014e        0     1                 .L0 
  100014e  100014e        0     1                 .L0 
  100014e  100014e        0     1                 .L0 
- 100014e  100014e       62     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.text)
+ 100014e  100014e       62     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.text)
  100014e  100014e        0     1                 .L0 
  100014e  100014e        0     1                 .L0 
  100014e  100014e        0     1                 $x
@@ -122,7 +122,7 @@
  1000178  1000178        0     1                 .L0 
  1000178  1000178        0     1                 .L0 
  1000178  1000178        0     1                 .L0 
- 1000178  1000178        e     1                 exit
+ 1000178  1000178        e     1                 sys_exit
  1000184  1000184        0     1                 .L0 
  1000186  1000186        0     1                 .L0 
  1000186  1000186        0     1                 .L0 
@@ -138,7 +138,7 @@
  10001a2  10001a2        0     1                 .L0 
  10001a2  10001a2        0     1                 .L0 
  10001a2  10001a2        e     1                 sys_concatenate
- 10001b0  10001b0      276     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.text)
+ 10001b0  10001b0      276     2         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.text)
  10001b0  10001b0        0     1                 .L0 
  10001b0  10001b0        0     1                 .L0 
  10001b0  10001b0        0     1                 $x
@@ -359,7 +359,7 @@
  1000428  1000428      1a2     4 .rodata
  1000428  1000428      1a2     1         <internal>:(.rodata.str1.1)
  10005cc  10005cc        4     4 .data
- 10005cc  10005cc        4     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.data)
+ 10005cc  10005cc        4     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.data)
  10005cc  10005cc        4     1                 next
  10005cc  10005cc        0     1                 $d
  10005d0  10005d0    10000     4 .bss
@@ -368,49 +368,49 @@
  10105d0  10105d0        0     1         __stack_top = .
  10105d0  10105d0        0     1         
        0        0      39e     1 .debug_loclists
-       0        0       66     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.debug_loclists)
+       0        0       66     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.debug_loclists)
        0        0        0     1                 $d
        c        c        0     1                 .L0 
-      66       66      114     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_loclists)
+      66       66      114     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_loclists)
       66       66        0     1                 $d
       72       72        0     1                 .L0 
-     17a      17a      224     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_loclists)
+     17a      17a      224     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_loclists)
      17a      17a        0     1                 $d
      186      186        0     1                 .L0 
        0        0      3ac     1 .debug_abbrev
-       0        0      109     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.debug_abbrev)
+       0        0      109     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.debug_abbrev)
        0        0        0     1                 $d
-     109      109      14c     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_abbrev)
+     109      109      14c     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_abbrev)
      109      109        0     1                 $d
-     255      255      157     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_abbrev)
+     255      255      157     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_abbrev)
      255      255        0     1                 $d
        0        0      7d7     1 .debug_info
-       0        0      252     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.debug_info)
+       0        0      252     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.debug_info)
        0        0        0     1                 $d
-     252      252      2db     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_info)
+     252      252      2db     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_info)
      252      252        0     1                 $d
-     52d      52d      2aa     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_info)
+     52d      52d      2aa     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_info)
      52d      52d        0     1                 $d
        0        0      17c     1 .debug_str_offsets
-       0        0       50     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.debug_str_offsets)
+       0        0       50     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.debug_str_offsets)
        0        0        0     1                 $d
        8        8        0     1                 .L0 
-      50       50       7c     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_str_offsets)
+      50       50       7c     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_str_offsets)
       50       50        0     1                 $d
       58       58        0     1                 .L0 
-      cc       cc       b0     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_str_offsets)
+      cc       cc       b0     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_str_offsets)
       cc       cc        0     1                 $d
       d4       d4        0     1                 .L0 
-       0        0      205     1 .debug_str
-       0        0      205     1         <internal>:(.debug_str)
+       0        0      209     1 .debug_str
+       0        0      209     1         <internal>:(.debug_str)
        0        0      12c     1 .debug_addr
-       0        0       94     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.debug_addr)
+       0        0       94     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.debug_addr)
        0        0        0     1                 $d
        8        8        0     1                 .L0 
-      94       94       28     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_addr)
+      94       94       28     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_addr)
       94       94        0     1                 $d
       9c       9c        0     1                 .L0 
-      bc       bc       70     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_addr)
+      bc       bc       70     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_addr)
       bc       bc        0     1                 $d
       c4       c4        0     1                 .L0 
        0        0       3b     1 .comment
@@ -418,37 +418,37 @@
        0        0       4e     1 .riscv.attributes
        0        0       4e     1         <internal>:(.riscv.attributes)
        0        0      1a0     4 .debug_frame
-       0        0       44     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.debug_frame)
+       0        0       44     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.debug_frame)
        0        0        0     1                 .L0 
        0        0        0     1                 $d
-      44       44       94     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_frame)
+      44       44       94     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_frame)
       44       44        0     1                 .L0 
       44       44        0     1                 $d
-      d8       d8       c8     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_frame)
+      d8       d8       c8     4         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_frame)
       d8       d8        0     1                 .L0 
       d8       d8        0     1                 $d
-       0        0      618     1 .debug_line
-       0        0      1c5     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-e5c1f4.o:(.debug_line)
+       0        0      631     1 .debug_line
+       0        0      1c5     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/shell-a0cd7e.o:(.debug_line)
        0        0        0     1                 .Lline_table_start0
        0        0        0     1                 $d
-     1c5      1c5       d3     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_line)
+     1c5      1c5       d3     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_line)
      1c5      1c5        0     1                 .Lline_table_start0
      1c5      1c5        0     1                 $d
-     298      298      380     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_line)
+     298      298      399     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_line)
      298      298        0     1                 .Lline_table_start0
      298      298        0     1                 $d
-       0        0       7b     1 .debug_line_str
-       0        0       7b     1         <internal>:(.debug_line_str)
+       0        0       95     1 .debug_line_str
+       0        0       95     1         <internal>:(.debug_line_str)
        0        0       41     1 .debug_rnglists
-       0        0       17     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-bc6d4b.o:(.debug_rnglists)
+       0        0       17     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/user-3dc68d.o:(.debug_rnglists)
        0        0        0     1                 $d
        c        c        0     1                 .L0 
-      17       17       2a     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-514893.o:(.debug_rnglists)
+      17       17       2a     1         /var/folders/hw/r5t5ryts3r7fw374z_3h5bmw0000gp/T/common-31d91c.o:(.debug_rnglists)
       17       17        0     1                 $d
       23       23        0     1                 .L0 
        0        0      410     4 .symtab
        0        0      410     4         <internal>:(.symtab)
        0        0       dc     1 .shstrtab
        0        0       dc     1         <internal>:(.shstrtab)
-       0        0      138     1 .strtab
-       0        0      138     1         <internal>:(.strtab)
+       0        0      13c     1 .strtab
+       0        0      13c     1         <internal>:(.strtab)

@@ -22,7 +22,7 @@ void main(void) {
     if (strcmp(cmdline, "hello") == 0)
       printf("Hello world from shell!\n");
     else if (strcmp(cmdline, "exit") == 0)
-      exit();
+      sys_exit();
     else if (strcmp(cmdline, "ls") == 0)
       sys_list_root_dir();
     else if (strcmp(cmdline, "cat") == 0)
