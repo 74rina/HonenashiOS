@@ -116,6 +116,36 @@ int strncmp(const char *s1, const char *s2, uint32_t n) {
   return 0;
 }
 
+char *strrchr(const char *s, int c) {
+  const char *last = NULL;
+
+  while (*s) {
+    if (*s == (char)c) {
+      last = s;
+    }
+    s++;
+  }
+
+  return (char *)last;
+}
+
+char *strcat(char *dst, const char *src) {
+  char *p = dst;
+
+  // dst の末尾まで進める
+  while (*p) {
+    p++;
+  }
+
+  // src をコピー
+  while (*src) {
+    *p++ = *src++;
+  }
+
+  *p = '\0';
+  return dst;
+}
+
 static unsigned long next = 1;
 
 void srand(unsigned int seed) { next = seed; } // シード値からrandを呼び出す場合

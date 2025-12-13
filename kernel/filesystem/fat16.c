@@ -398,6 +398,7 @@ int current_directory(const char *name) {
       // cd <名前>
       if (name_match(de, name)) {
         current_dir_cluster = de->start_cluster;
+        update_current_path_on_cd(name);
         return 0;
       }
     }
@@ -414,6 +415,7 @@ int current_directory(const char *name) {
       if (name[0] == '.' && name[1] == '.' && name[2] == '\0') {
         if (de->name[0] == '.' && de->name[1] == '.') {
           current_dir_cluster = de->start_cluster;
+          update_current_path_on_cd(name);
           return 0;
         }
         continue;
@@ -422,6 +424,7 @@ int current_directory(const char *name) {
       // cd <名前>
       if (name_match(de, name)) {
         current_dir_cluster = de->start_cluster;
+        update_current_path_on_cd(name);
         return 0;
       }
     }
@@ -442,6 +445,33 @@ int name_match(const struct dir_entry *de, const char *name) {
   }
 
   return strcmp(fat_name, name) == 0;
+}
+
+void update_current_path_on_cd(const char *name) {
+  if (strcmp(name, "/") == 0) {
+    strcpy(current_path, "/");
+    return;
+  }
+
+  if (strcmp(name, "..") == 0) {
+    if (strcmp(current_path, "/") == 0)
+      return;
+
+    // 末尾の /foo を削除
+    char *p = strrchr(current_path, '/');
+    if (p == current_path) {
+      // "/foo" → "/"
+      current_path[1] = '\0';
+    } else if (p) {
+      *p = '\0';
+    }
+    return;
+  }
+
+  // 通常の cd foo
+  if (strcmp(current_path, "/") != 0)
+    strcat(current_path, "/");
+  strcat(current_path, name);
 }
 
 void print_working_directory(void) { kprintf("%s\n", current_path); }

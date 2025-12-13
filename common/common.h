@@ -34,6 +34,8 @@ void *memcpy(void *dst, const void *src, size_t n);
 char *strcpy(char *dst, const char *src);
 int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, uint32_t n);
+char *strrchr(const char *s, int c);
+char *strcat(char *dst, const char *src);
 int vprintf(putc_fn_t putc, const char *fmt, va_list vargs);
 int rand(void);
 void srand(unsigned int seed);
