@@ -61,3 +61,42 @@ void read_write_disk(void *buf, unsigned sector, int is_write) {
   if (!is_write)
     memcpy(buf, blk_req->data, SECTOR_SIZE);
 }
+
+/*
+デバイスにセクタ単位で読み書きする方法
+
+まず、リクエストの構造体virtio_blk_reqを作る
+struct virtio_blk_req {
+    uint32_t type;     // IN / OUT
+    uint32_t reserved;
+    uint64_t sector;   // どのセクタか
+    uint8_t data[SECTOR_SIZE];
+    uint8_t status;
+};
+
+それから、read_write_disk関数の第二引数sectorを使って
+blk_req->sector = sector;
+と設定して、
+
+これがMMIOの本質。
+
+CPU メモリ上:
++----------------+
+| blk_req        | ← virtio_blk_req 構造体（sector番号、バッファアドレスなど）
++----------------+
+| buf            | ← データ受け取り用の CPU バッファ
++----------------+
+
+MMIO (0x10001000〜):
++----------------+
+| QueueNotify    | ← CPU が書き込むことで virtio-blk に命令を通知
+| DeviceStatus   |
+| DeviceConfig   |
++----------------+
+
+QEMU 内の仮想ディスク:
++----------------+
+| lorem.txt の内容 |
++----------------+
+
+*/

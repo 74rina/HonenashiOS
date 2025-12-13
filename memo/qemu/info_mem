@@ -1,5 +1,8 @@
 info memコマンド
 
+ramメモリのメモリダンプを見る。
+ディスクの情報を見るには info block
+
 vaddr=0x01000000 → ゲストがこのアドレスをアクセスすると…
 paddr=0x8027a000 → QEMU 内部でこの物理アドレスに対応する RAM 領域がある
 
@@ -7,3 +10,44 @@ paddr=0x8027a000 → QEMU 内部でこの物理アドレスに対応する RAM �
 
 QEMUは、「エミュレーション中のcpuが出すアドレスを、
 ホストのメモリにマッピンする」仕組みで動いてる
+
+------------
+
+シェルスクリプトで、qemu-system-riscv64を実行すると、
+「risc-vのCPUをエミュレートする」
+= risc-vで定義されるレジスタ名を、インラインアセンブリ内で固定名として使える。
+
+------------
+
+(qemu) info
+info balloon  -- show balloon information
+info block  -- show the block devices
+info blockstats  -- show block device statistics
+info capture  -- show capture information
+info chardev  -- show the character devices
+info cpus  -- show infos for each CPU
+info history  -- show the command line history
+info jit  -- show dynamic compiler info
+info kvm  -- show KVM information
+info mice  -- show which guest mouse is receiving events
+info migrate  -- show migration status
+info mtree  -- show memory tree
+info name  -- show the current VM name
+info network  -- show the network state
+info numa  -- show NUMA information
+info pci  -- show PCI info
+info pcmcia  -- show guest PCMCIA status
+info profile  -- show profiling information
+info qdm  -- show qdev device model list
+info qtree  -- show device tree
+info registers  -- show the cpu registers
+info roms  -- show roms
+info snapshots  -- show the currently saved VM snapshots
+info status  -- show the current VM status (running|paused)
+info trace-events  -- show available trace-events & their state
+info usb  -- show guest USB devices
+info usbhost  -- show host USB devices
+info usernet  -- show user network stack connection states
+info uuid  -- show the current VM UUID
+info version  -- show the version of QEMU
+info vnc  -- show the vnc server status

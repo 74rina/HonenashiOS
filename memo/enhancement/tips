@@ -4,3 +4,4 @@ printfのフォーマット指定子の対応増やす
 コマンド追加
     - sbi legacy extension(putchar, getchar, exit)だけを使って
 GUI追加
+ファイルシステム

@@ -31,4 +31,5 @@ SECTIONS {
     __free_ram = .;
     . += 64 * 1024 * 1024; /* 64MB */
     __free_ram_end = .;
+
 }

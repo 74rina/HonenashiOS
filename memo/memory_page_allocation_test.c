@@ -1,6 +1,8 @@
 #include "../common.h"
 #include "../kernel.h"
 
+#define PAGE_SIZE 4096
+
 extern char __free_ram[], __free_ram_end[];
 
 paddr_t alloc_pages(uint32_t n) {

@@ -23,11 +23,16 @@ int main(void) {
     printf("%d\n", compare);
   }
 }
-
-// printf(compare)はおかしい。
-// printfの第一引数は必ずフォーマット文字列
+/*
+printf(compare)はおかしい。
+printfの第一引数は必ずフォーマット文字列
+*/
 /*
 Hello と World （のASCIIの値）を比べる
 H(72)とW(87)で違う→ループを抜ける
 出力は、72-87=-15
+*/
+
+/*
+touchコマンド実装のため、strncmp(nバイト比較)も実装したい。
 */
