@@ -106,6 +106,7 @@ int create_file(const char *name, const uint8_t *data, uint32_t size) {
     return -1;
   }
 
+  // ディレクトリエントリの設定
   struct dir_entry *de = &root_dir[entry_index];
   memset(de->name, ' ', 8);
   memset(de->ext, ' ', 3);
@@ -295,4 +296,81 @@ void concatenate() {
     putchar(buf[i]);
   }
   kprintf("\n===== end =====\n");
+}
+
+// サブディレクトリを作る
+int make_dir(const char *name) {
+  read_fat_from_disk();
+  read_root_dir_from_disk();
+
+  // 空きエントリを探す
+  int entry_index = -1;
+  for (int i = 0; i < BPB_RootEntCnt; i++) {
+    if (root_dir[i].name[0] == 0x00 || (uint8_t)root_dir[i].name[0] == 0xE5) {
+      entry_index = i;
+      break;
+    }
+  }
+  if (entry_index < 0) {
+    kprintf("[FAT16] ERROR: Root directory full.\n");
+    return -1;
+  }
+
+  // 空きクラスタを探す
+  uint16_t new_cluster = 0;
+  for (uint16_t i = 2; i < FAT_ENTRY_NUM; i++) {
+    if (fat[i] == 0x0000) {
+      new_cluster = i;
+      break;
+    }
+  }
+  if (new_cluster == 0) {
+    kprintf("[FAT16] ERROR: No free cluster.\n");
+    return -1;
+  }
+
+  fat[new_cluster] = 0xFFFF; // EOC
+
+  // ディレクトリエントリの設定
+  struct dir_entry *de = &root_dir[entry_index];
+  memset(de, 0, sizeof(struct dir_entry));
+  memset(de->name, ' ', 8);
+  memset(de->ext, ' ', 3);
+
+  int n = 0;
+  while (n < 8 && name[n] && name[n] != '.') {
+    de->name[n] = name[n];
+    n++;
+  }
+
+  de->attr = 0x10; // ATTR_DIRECTORY
+  de->start_cluster = new_cluster;
+  de->size = 0;
+
+  // 新ディレクトリクラスタに "." と ".." を書く
+  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  memset(buf, 0, sizeof(buf));
+
+  // "."
+  memset(buf[0].name, ' ', 8);
+  memset(buf[0].ext, ' ', 3);
+  buf[0].name[0] = '.';
+  buf[0].attr = 0x10;
+  buf[0].start_cluster = new_cluster;
+
+  // ".."（ルートなので 0）
+  memset(buf[1].name, ' ', 8);
+  memset(buf[1].ext, ' ', 3);
+  buf[1].name[0] = '.';
+  buf[1].name[1] = '.';
+  buf[1].attr = 0x10;
+  buf[1].start_cluster = 0;
+
+  // 書き戻し
+  write_cluster(new_cluster, buf);
+  write_fat_to_disk();
+  write_root_dir_to_disk();
+
+  kprintf("[FAT16] Directory created: %s (cluster %d)\n", name, new_cluster);
+  return 0;
 }

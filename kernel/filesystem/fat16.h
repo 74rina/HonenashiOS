@@ -16,7 +16,7 @@
 #define FAT2_START_SECTOR (FAT1_START_SECTOR + BPB_FATSz16)
 #define FAT_ENTRY_NUM ((BPB_FATSz16 * BPB_BytsPerSec) / 2)
 
-// ルートディレクトリ
+// ルートディレクトリ領域
 #define ROOT_DIR_START_SECTOR (BPB_RsvdSecCnt + BPB_NumFATs * BPB_FATSz16)
 #define ROOT_DIR_SECTORS                                                       \
   ((BPB_RootEntCnt * 32 + BPB_BytsPerSec - 1) / BPB_BytsPerSec)
@@ -48,8 +48,8 @@ extern struct dir_entry root_dir[BPB_RootEntCnt];
 void init_fat16_disk();
 void read_cluster(uint16_t cluster, void *buf);
 void write_cluster(uint16_t cluster, void *buf);
-void copy_name_dynamic(char **name_field, const char *src);
 int create_file(const char *name, const uint8_t *data, uint32_t size);
 int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size);
 void list_root_dir();
 void concatenate();
+int make_dir(const char *name);

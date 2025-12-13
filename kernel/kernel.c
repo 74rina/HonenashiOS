@@ -366,10 +366,6 @@ void handle_trap(struct trap_frame *f) {
   WRITE_CSR(sepc, user_pc);
 }
 
-// I/O
-
-// File System
-
 // process_switch_test
 struct process *proc_a;
 struct process *proc_b;
@@ -428,7 +424,7 @@ void kernel_main(void) {
   kprintf("first sector: %s\n", buf);
 
   create_file("test.txt", "hello", 5);
-  create_file("test2.txt", "hello2", 6);
+  make_dir("testdir");
 
   create_process(_binary_user_shell_bin_start,
                  (size_t)_binary_user_shell_bin_size);
