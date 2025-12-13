@@ -8,6 +8,7 @@ typedef uint32_t size_t;
 typedef uint32_t paddr_t;
 typedef uint32_t vaddr_t;
 typedef uint8_t bool;
+typedef void (*putc_fn_t)(char);
 
 #define true 1
 #define false 0
@@ -32,6 +33,6 @@ void *memcpy(void *dst, const void *src, size_t n);
 char *strcpy(char *dst, const char *src);
 int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, uint32_t n);
-void printf(const char *fmt, ...);
+int vprintf(putc_fn_t putc, const char *fmt, va_list vargs);
 int rand(void);
 void srand(unsigned int seed);

@@ -1,64 +1,75 @@
 #include "./common.h"
 #include "../kernel/kernel.h"
 
-void printf(const char *fmt, ...) {
-  va_list vargs;
-  va_start(vargs, fmt);
+int vprintf(putc_fn_t putc, const char *fmt, va_list vargs) {
+  int count = 0;
 
   while (*fmt) {
     if (*fmt == '%') {
       fmt++;
       switch (*fmt) {
       case '\0':
-        putchar('%');
-        goto end;
+        putc('%');
+        count++;
+        return count;
+
       case '%':
-        putchar('%');
+        putc('%');
+        count++;
         break;
 
       case 's': {
         const char *s = va_arg(vargs, const char *);
+        if (!s)
+          s = "(null)";
         while (*s) {
-          putchar(*s);
-          s++;
+          putc(*s++);
+          count++;
         }
         break;
       }
-      case 'd': { // Print an integer in decimal.
+
+      case 'd': {
         int value = va_arg(vargs, int);
         unsigned magnitude = value;
+
         if (value < 0) {
-          putchar('-');
+          putc('-');
           magnitude = -magnitude;
+          count++;
         }
 
         unsigned divisor = 1;
         while (magnitude / divisor > 9)
           divisor *= 10;
 
-        while (divisor > 0) {
-          putchar('0' + magnitude / divisor);
+        while (divisor) {
+          putc('0' + magnitude / divisor);
           magnitude %= divisor;
           divisor /= 10;
+          count++;
         }
         break;
       }
-      case 'x': { // Print an integer in hexadecimal.
+
+      case 'x': {
         unsigned value = va_arg(vargs, unsigned);
         for (int i = 7; i >= 0; i--) {
           unsigned nibble = (value >> (i * 4)) & 0xf;
-          putchar("0123456789abcdef"[nibble]);
+          putc("0123456789abcdef"[nibble]);
+          count++;
         }
+        break;
       }
       }
     } else {
-      putchar(*fmt);
+      putc(*fmt);
+      count++;
     }
     fmt++;
   }
 
-end:
-  va_end(vargs);
+  return count;
 }
 
 void *memcpy(void *dst, const void *src, size_t n) {

@@ -220,6 +220,14 @@ long getchar(void) {
   struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
   return ret.error;
 }
+int vprintf(void (*putc)(char), const char *fmt, va_list vargs);
+int kprintf(const char *fmt, ...) {
+  va_list vargs;
+  va_start(vargs, fmt);
+  int ret = vprintf(putchar, fmt, vargs);
+  va_end(vargs);
+  return ret;
+}
 
 // Interrupt
 __attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void) {
@@ -316,7 +324,7 @@ void handle_syscall(struct trap_frame *f) {
     }
     break;
   case SYS_EXIT:
-    printf("process %d exited\n", current_proc->pid);
+    kprintf("process %d exited\n", current_proc->pid);
     current_proc->state = PROC_EXITED;
     yield();
     PANIC("unreachable");
@@ -372,7 +380,7 @@ void delay(void) {
 }
 
 void proc_a_entry(void) {
-  printf("starting process A\n");
+  kprintf("starting process A\n");
   while (1) {
     putchar('A');
     yield();
@@ -381,7 +389,7 @@ void proc_a_entry(void) {
 }
 
 void proc_b_entry(void) {
-  printf("starting process B\n");
+  kprintf("starting process B\n");
   while (1) {
     putchar('B');
     yield();
@@ -407,17 +415,17 @@ void kernel_main(void) {
   idle_proc->pid = 0;
   current_proc = idle_proc;
 
-  printf("\n\nWelcome to... %s!!!\n", "HonenashiOS ^p^");
-  printf("1 + 2 = %d, %x\n", 1 + 2, 0x1234abcd);
+  kprintf("\n\nWelcome to... %s!!!\n", "HonenashiOS ^p^");
+  kprintf("1 + 2 = %d, %x\n", 1 + 2, 0x1234abcd);
 
   paddr_t paddr0 = alloc_pages(2);
   paddr_t paddr1 = alloc_pages(1);
-  printf("alloc_pages test: paddr0=%x\n", paddr0);
-  printf("alloc_pages test: paddr1=%x\n", paddr1);
+  kprintf("alloc_pages test: paddr0=%x\n", paddr0);
+  kprintf("alloc_pages test: paddr1=%x\n", paddr1);
 
   char buf[SECTOR_SIZE];
   read_write_disk(buf, 0, false);
-  printf("first sector: %s\n", buf);
+  kprintf("first sector: %s\n", buf);
 
   create_file("test.txt", "hello", 5);
   create_file("test2.txt", "hello2", 6);

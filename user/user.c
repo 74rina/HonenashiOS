@@ -1,7 +1,5 @@
 #include "user.h"
 #include "../common/common.h"
-#include "../kernel/filesystem/fat16.h"
-#include "../kernel/kernel.h"
 
 extern char __stack_top[];
 
@@ -43,3 +41,12 @@ int sys_create_file(const char *name, const uint8_t *data, uint32_t size) {
 void sys_list_root_dir() { syscall(SYS_LIST_FILE, 0, 0, 0); }
 
 void sys_concatenate() { syscall(SYS_CONCATENATE, 0, 0, 0); }
+
+int vprintf(void (*putc)(char), const char *fmt, va_list vargs);
+int printf(const char *fmt, ...) {
+  va_list vargs;
+  va_start(vargs, fmt);
+  int ret = vprintf(putchar, fmt, vargs);
+  va_end(vargs);
+  return ret;
+}
