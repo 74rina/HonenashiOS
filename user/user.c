@@ -1,7 +1,7 @@
 #include "user.h"
-#include "filesystem/fat16.h"
-#include "kernel.h"
-#include "lib/common.h"
+#include "../common/common.h"
+#include "../kernel/filesystem/fat16.h"
+#include "../kernel/kernel.h"
 
 extern char __stack_top[];
 
@@ -9,7 +9,7 @@ __attribute__((section(".text.start"))) __attribute__((naked)) void
 start(void) {
   __asm__ __volatile__("mv sp, %[stack_top]\n"
                        "call main\n"
-                       "call exit\n" ::[stack_top] "r"(__stack_top));
+                       "call sys_exit\n" ::[stack_top] "r"(__stack_top));
 }
 
 int syscall(int sysno, int arg0, int arg1, int arg2) {
@@ -30,16 +30,16 @@ void putchar(char ch) { syscall(SYS_PUTCHAR, ch, 0, 0); }
 
 int getchar(void) { syscall(SYS_GETCHAR, 0, 0, 0); }
 
-__attribute__((noreturn)) void exit(void) {
+__attribute__((noreturn)) void sys_exit(void) {
   syscall(SYS_EXIT, 0, 0, 0);
   for (;;)
     ; // 念のため
 }
 
-int create_file(const char *name, const uint8_t *data, uint32_t size) {
+int sys_create_file(const char *name, const uint8_t *data, uint32_t size) {
   syscall(SYS_CREATE_FILE, 0, 0, 0);
 }
 
-void list_root_dir() { syscall(SYS_LIST_FILE, 0, 0, 0); }
+void sys_list_root_dir() { syscall(SYS_LIST_FILE, 0, 0, 0); }
 
-void concatenate() { syscall(SYS_CONCATENATE, 0, 0, 0); }
+void sys_concatenate() { syscall(SYS_CONCATENATE, 0, 0, 0); }

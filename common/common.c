@@ -1,7 +1,5 @@
 #include "./common.h"
-#include "../kernel.h"
-
-void putchar(char ch);
+#include "../kernel/kernel.h"
 
 void printf(const char *fmt, ...) {
   va_list vargs;

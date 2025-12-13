@@ -1,5 +1,5 @@
 #pragma once
-#include "lib/common.h"
+#include "../common/common.h"
 
 struct sbiret {
   long error;
