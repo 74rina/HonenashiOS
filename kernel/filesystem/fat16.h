@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../kernel.h"
-#include <cstdint>
 
 // FATボリューム
 // ブートセクタ
@@ -51,7 +50,7 @@ struct dir_entry {
 extern struct dir_entry root_dir[BPB_RootEntCnt];
 
 // カレントディレクトリ
-uint16_t current_dir_cluster = 0;
+extern uint16_t current_dir_cluster;
 
 void init_fat16_disk();
 void read_cluster(uint16_t cluster, void *buf);
@@ -61,3 +60,5 @@ int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size);
 void list_root_dir();
 void concatenate();
 int make_dir(uint16_t parent_cluster, const char *name);
+int current_directory(const char *name);
+int name_match(const struct dir_entry *de, const char *name);

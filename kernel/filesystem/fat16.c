@@ -2,6 +2,8 @@
 #include "../drivers/virtio.h"
 #include "../kernel.h"
 
+uint16_t current_dir_cluster;
+
 // FATボリュームの各領域を初期化
 void init_fat16_disk() {
   uint8_t buf[SECTOR_SIZE];
@@ -373,4 +375,70 @@ int make_dir(uint16_t parent_cluster, const char *name) {
 
   kprintf("[FAT16] Directory created: %s (cluster %d)\n", name, new_cluster);
   return 0;
+}
+
+// カレントディレクトリを移動させる
+int current_directory(const char *name) {
+  if (strcmp(name, "/") == 0) {
+    current_dir_cluster = 0;
+    return 0;
+  }
+
+  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+
+  if (current_dir_cluster == 0) {
+    // 0なのでルート
+    for (int i = 0; i < BPB_RootEntCnt; i++) {
+      struct dir_entry *de = &root_dir[i];
+      if (de->name[0] == 0x00)
+        break;
+      if (!(de->attr & 0x10))
+        continue;
+      // cd <名前>
+      if (name_match(de, name)) {
+        current_dir_cluster = de->start_cluster;
+        return 0;
+      }
+    }
+  } else {
+    read_cluster(current_dir_cluster, buf);
+    for (int i = 0; i < BPB_BytsPerSec / sizeof(struct dir_entry); i++) {
+      struct dir_entry *de = &buf[i];
+      if (de->name[0] == 0x00)
+        break;
+      if (!(de->attr & 0x10))
+        continue;
+
+      // cd ..
+      if (name[0] == '.' && name[1] == '.' && name[2] == '\0') {
+        if (de->name[0] == '.' && de->name[1] == '.') {
+          current_dir_cluster = de->start_cluster;
+          return 0;
+        }
+        continue;
+      }
+
+      // cd <名前>
+      if (name_match(de, name)) {
+        current_dir_cluster = de->start_cluster;
+        return 0;
+      }
+    }
+  }
+  kprintf("[cd] directory not found: %s\n", name);
+  return -1;
+}
+
+int name_match(const struct dir_entry *de, const char *name) {
+  char fat_name[9];
+  memset(fat_name, 0, sizeof(fat_name));
+
+  // name[8] をコピー（末尾スペース除去）
+  for (int i = 0; i < 8; i++) {
+    if (de->name[i] == ' ')
+      break;
+    fat_name[i] = de->name[i];
+  }
+
+  return strcmp(fat_name, name) == 0;
 }

@@ -424,7 +424,8 @@ void kernel_main(void) {
   kprintf("first sector: %s\n", buf);
 
   create_file("test.txt", "hello", 5);
-  make_dir("testdir");
+  make_dir(0, "testdir");
+  current_directory("testdir");
 
   create_process(_binary_user_shell_bin_start,
                  (size_t)_binary_user_shell_bin_size);
