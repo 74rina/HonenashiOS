@@ -27,22 +27,20 @@ void init_fat16_disk() {
 uint16_t fat[FAT_ENTRY_NUM];
 struct dir_entry root_dir[BPB_RootEntCnt];
 
-// データ領域の読み書き
-static inline uint32_t cluster_to_sector(uint16_t cluster) {
-  return DATA_START_SECTOR + (cluster - 2) * BPB_SecPerClus;
-}
-
-void read_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 0);
+// FAT領域の読み書き
+static void read_fat_from_disk() {
+  for (int i = 0; i < BPB_FATSz16; i++) {
+    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 0);
   }
 }
-
-void write_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 1);
+static void write_fat_to_disk() {
+  // FAT1 書き戻し
+  for (int i = 0; i < BPB_FATSz16; i++) {
+    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 1);
+  }
+  // FAT2 書き戻し（ミラー）
+  for (int i = 0; i < BPB_FATSz16; i++) {
+    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT2_START_SECTOR + i, 1);
   }
 }
 
@@ -53,7 +51,6 @@ static void read_root_dir_from_disk() {
                     ROOT_DIR_START_SECTOR + i, 0);
   }
 }
-
 static void write_root_dir_to_disk() {
   for (int i = 0; i < ROOT_DIR_SECTORS; i++) {
     read_write_disk(&root_dir[i * (BPB_BytsPerSec / 32)],
@@ -61,27 +58,25 @@ static void write_root_dir_to_disk() {
   }
 }
 
-// FAT領域の読み書き
-static void read_fat_from_disk() {
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 0);
+// データ領域の読み書き
+static inline uint32_t cluster_to_sector(uint16_t cluster) {
+  return DATA_START_SECTOR + (cluster - 2) * BPB_SecPerClus;
+}
+void read_cluster(uint16_t cluster, void *buf) {
+  for (int i = 0; i < BPB_SecPerClus; i++) {
+    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
+                    cluster_to_sector(cluster) + i, 0);
+  }
+}
+void write_cluster(uint16_t cluster, void *buf) {
+  for (int i = 0; i < BPB_SecPerClus; i++) {
+    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
+                    cluster_to_sector(cluster) + i, 1);
   }
 }
 
-static void write_fat_to_disk() {
-  // FAT1 書き戻し
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 1);
-  }
-
-  // FAT2 書き戻し（ミラー）
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT2_START_SECTOR + i, 1);
-  }
-}
-
+// ファイルを作る
 int create_file(const char *name, const uint8_t *data, uint32_t size) {
-  // FAT / root_dir 読み込み
   read_fat_from_disk();
   read_root_dir_from_disk();
 
@@ -174,7 +169,7 @@ int create_file(const char *name, const uint8_t *data, uint32_t size) {
     }
   }
 
-  // FAT書き戻し
+  // 書き戻し
   write_fat_to_disk();
   write_root_dir_to_disk();
 
@@ -228,7 +223,7 @@ void list_root_dir() {
   }
 }
 
-// ファイル読み込み
+// ファイル読み込んでRAMに置く
 int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
   read_fat_from_disk();
 
@@ -256,6 +251,7 @@ int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
   return 0;
 }
 
+// 最初のファイルを読む（未完成）
 void concatenate() {
   // 1. 最新の FAT と root_dir を読み込む（FAT を必ず先に）
   read_fat_from_disk();
