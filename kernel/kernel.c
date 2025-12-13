@@ -1,7 +1,7 @@
 #include "kernel.h"
+#include "../common/common.h"
 #include "drivers/virtio.h"
 #include "filesystem/fat16.h"
-#include "lib/common.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
@@ -10,7 +10,7 @@ typedef uint32_t size_t;
 extern char __kernel_base[];
 extern char __bss[], __bss_end[], __stack_top[];
 extern char __free_ram[], __free_ram_end[];
-extern char _binary_shell_bin_start[], _binary_shell_bin_size[];
+extern char _binary_user_shell_bin_start[], _binary_user_shell_bin_size[];
 
 struct process procs[PROCS_MAX];
 struct process *current_proc;
@@ -422,7 +422,8 @@ void kernel_main(void) {
   create_file("test.txt", "hello", 5);
   create_file("test2.txt", "hello2", 6);
 
-  create_process(_binary_shell_bin_start, (size_t)_binary_shell_bin_size);
+  create_process(_binary_user_shell_bin_start,
+                 (size_t)_binary_user_shell_bin_size);
   yield();
   PANIC("shell discontinued");
 
