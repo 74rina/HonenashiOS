@@ -2,7 +2,8 @@
 #include "../drivers/virtio.h"
 #include "../kernel.h"
 
-uint16_t current_dir_cluster;
+uint16_t current_dir_cluster = 0;
+char current_path[MAX_PATH_LEN] = "/";
 
 // FATボリュームの各領域を初期化
 void init_fat16_disk() {
@@ -443,4 +444,4 @@ int name_match(const struct dir_entry *de, const char *name) {
   return strcmp(fat_name, name) == 0;
 }
 
-void print_working_directory(void) { kprintf("%s\n", current_dir_cluster); }
+void print_working_directory(void) { kprintf("%s\n", current_path); }

@@ -52,6 +52,10 @@ extern struct dir_entry root_dir[BPB_RootEntCnt];
 // カレントディレクトリ
 extern uint16_t current_dir_cluster;
 
+// カレントパス
+#define MAX_PATH_LEN 256
+extern char current_path[MAX_PATH_LEN];
+
 void init_fat16_disk();
 void read_cluster(uint16_t cluster, void *buf);
 void write_cluster(uint16_t cluster, void *buf);
