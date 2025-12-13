@@ -299,7 +299,7 @@ void concatenate() {
 }
 
 // サブディレクトリを作る
-int make_dir(const char *name) {
+int make_dir(uint16_t parent_cluster, const char *name) {
   read_fat_from_disk();
   read_root_dir_from_disk();
 
@@ -364,7 +364,7 @@ int make_dir(const char *name) {
   buf[1].name[0] = '.';
   buf[1].name[1] = '.';
   buf[1].attr = 0x10;
-  buf[1].start_cluster = 0;
+  buf[1].start_cluster = parent_cluster;
 
   // 書き戻し
   write_cluster(new_cluster, buf);
