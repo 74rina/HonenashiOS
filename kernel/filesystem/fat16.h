@@ -1,7 +1,9 @@
 #pragma once
 
 #include "../kernel.h"
+#include <cstdint>
 
+// FATボリューム
 // ブートセクタ
 #define BPB_BytsPerSec 512
 #define BPB_SecPerClus 1
@@ -24,7 +26,10 @@
 // データ領域
 #define DATA_START_SECTOR (ROOT_DIR_START_SECTOR + ROOT_DIR_SECTORS)
 
+// FAT領域のRAMキャッシュ
 extern uint16_t fat[FAT_ENTRY_NUM];
+
+// ルートディレクトリ領域のRAMキャッシュ
 #pragma pack(push, 1)
 struct dir_entry {
   char name[8];
@@ -44,6 +49,9 @@ struct dir_entry {
 #pragma pack(pop)
 
 extern struct dir_entry root_dir[BPB_RootEntCnt];
+
+// カレントディレクトリ
+uint16_t current_dir_cluster = 0;
 
 void init_fat16_disk();
 void read_cluster(uint16_t cluster, void *buf);
