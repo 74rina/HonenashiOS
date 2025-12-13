@@ -27,6 +27,7 @@ typedef void (*putc_fn_t)(char);
 #define SYS_CREATE_FILE 4
 #define SYS_LIST_FILE 5
 #define SYS_CONCATENATE 6
+#define SYS_PWD 7
 
 void *memset(void *buf, char c, size_t n);
 void *memcpy(void *dst, const void *src, size_t n);

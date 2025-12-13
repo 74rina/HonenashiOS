@@ -442,3 +442,5 @@ int name_match(const struct dir_entry *de, const char *name) {
 
   return strcmp(fat_name, name) == 0;
 }
+
+void print_working_directory(void) { kprintf("%s\n", current_dir_cluster); }

@@ -345,6 +345,10 @@ void handle_syscall(struct trap_frame *f) {
     concatenate();
     yield();
     break;
+  case SYS_PWD:
+    print_working_directory();
+    yield();
+    break;
   default:
     PANIC("unexpected syscall a3=%x\n", f->a3);
   }
@@ -426,6 +430,9 @@ void kernel_main(void) {
   create_file("test.txt", "hello", 5);
   make_dir(0, "testdir");
   current_directory("testdir");
+  current_directory("..");
+  current_directory("..");
+  current_directory("foo");
 
   create_process(_binary_user_shell_bin_start,
                  (size_t)_binary_user_shell_bin_size);

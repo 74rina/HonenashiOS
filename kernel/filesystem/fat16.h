@@ -62,3 +62,4 @@ void concatenate();
 int make_dir(uint16_t parent_cluster, const char *name);
 int current_directory(const char *name);
 int name_match(const struct dir_entry *de, const char *name);
+void print_working_directory(void);
