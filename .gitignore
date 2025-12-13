@@ -1,0 +1,9 @@
+# binaries
+*.elf
+*.map
+*.bin
+*.img
+
+# object files
+*.o
+*.a
