@@ -345,6 +345,10 @@ void handle_syscall(struct trap_frame *f) {
     concatenate();
     yield();
     break;
+  case SYS_PWD:
+    print_working_directory();
+    yield();
+    break;
   default:
     PANIC("unexpected syscall a3=%x\n", f->a3);
   }
@@ -365,10 +369,6 @@ void handle_trap(struct trap_frame *f) {
 
   WRITE_CSR(sepc, user_pc);
 }
-
-// I/O
-
-// File System
 
 // process_switch_test
 struct process *proc_a;
@@ -428,7 +428,9 @@ void kernel_main(void) {
   kprintf("first sector: %s\n", buf);
 
   create_file("test.txt", "hello", 5);
-  create_file("test2.txt", "hello2", 6);
+  make_dir(0, "testdir");
+  make_dir(3, "unreachable");
+  current_directory("testdir");
 
   create_process(_binary_user_shell_bin_start,
                  (size_t)_binary_user_shell_bin_size);

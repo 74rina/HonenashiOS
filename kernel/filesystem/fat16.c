@@ -2,6 +2,9 @@
 #include "../drivers/virtio.h"
 #include "../kernel.h"
 
+uint16_t current_dir_cluster = 0;
+char current_path[MAX_PATH_LEN] = "/";
+
 // FATボリュームの各領域を初期化
 void init_fat16_disk() {
   uint8_t buf[SECTOR_SIZE];
@@ -27,22 +30,20 @@ void init_fat16_disk() {
 uint16_t fat[FAT_ENTRY_NUM];
 struct dir_entry root_dir[BPB_RootEntCnt];
 
-// データ領域の読み書き
-static inline uint32_t cluster_to_sector(uint16_t cluster) {
-  return DATA_START_SECTOR + (cluster - 2) * BPB_SecPerClus;
-}
-
-void read_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 0);
+// FAT領域の読み書き
+static void read_fat_from_disk() {
+  for (int i = 0; i < BPB_FATSz16; i++) {
+    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 0);
   }
 }
-
-void write_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 1);
+static void write_fat_to_disk() {
+  // FAT1 書き戻し
+  for (int i = 0; i < BPB_FATSz16; i++) {
+    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 1);
+  }
+  // FAT2 書き戻し（ミラー）
+  for (int i = 0; i < BPB_FATSz16; i++) {
+    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT2_START_SECTOR + i, 1);
   }
 }
 
@@ -53,7 +54,6 @@ static void read_root_dir_from_disk() {
                     ROOT_DIR_START_SECTOR + i, 0);
   }
 }
-
 static void write_root_dir_to_disk() {
   for (int i = 0; i < ROOT_DIR_SECTORS; i++) {
     read_write_disk(&root_dir[i * (BPB_BytsPerSec / 32)],
@@ -61,27 +61,25 @@ static void write_root_dir_to_disk() {
   }
 }
 
-// FAT領域の読み書き
-static void read_fat_from_disk() {
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 0);
+// データ領域の読み書き
+static inline uint32_t cluster_to_sector(uint16_t cluster) {
+  return DATA_START_SECTOR + (cluster - 2) * BPB_SecPerClus;
+}
+void read_cluster(uint16_t cluster, void *buf) {
+  for (int i = 0; i < BPB_SecPerClus; i++) {
+    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
+                    cluster_to_sector(cluster) + i, 0);
+  }
+}
+void write_cluster(uint16_t cluster, void *buf) {
+  for (int i = 0; i < BPB_SecPerClus; i++) {
+    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
+                    cluster_to_sector(cluster) + i, 1);
   }
 }
 
-static void write_fat_to_disk() {
-  // FAT1 書き戻し
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 1);
-  }
-
-  // FAT2 書き戻し（ミラー）
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT2_START_SECTOR + i, 1);
-  }
-}
-
+// ファイルを作る
 int create_file(const char *name, const uint8_t *data, uint32_t size) {
-  // FAT / root_dir 読み込み
   read_fat_from_disk();
   read_root_dir_from_disk();
 
@@ -111,6 +109,7 @@ int create_file(const char *name, const uint8_t *data, uint32_t size) {
     return -1;
   }
 
+  // ディレクトリエントリの設定
   struct dir_entry *de = &root_dir[entry_index];
   memset(de->name, ' ', 8);
   memset(de->ext, ' ', 3);
@@ -174,7 +173,7 @@ int create_file(const char *name, const uint8_t *data, uint32_t size) {
     }
   }
 
-  // FAT書き戻し
+  // 書き戻し
   write_fat_to_disk();
   write_root_dir_to_disk();
 
@@ -228,7 +227,7 @@ void list_root_dir() {
   }
 }
 
-// ファイル読み込み
+// ファイル読み込んでRAMに置く
 int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
   read_fat_from_disk();
 
@@ -256,6 +255,7 @@ int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
   return 0;
 }
 
+// 最初のファイルを読む（未完成）
 void concatenate() {
   // 1. 最新の FAT と root_dir を読み込む（FAT を必ず先に）
   read_fat_from_disk();
@@ -300,3 +300,202 @@ void concatenate() {
   }
   kprintf("\n===== end =====\n");
 }
+
+// サブディレクトリを作る
+int make_dir(uint16_t parent_cluster, const char *name) {
+  read_fat_from_disk();
+  read_root_dir_from_disk();
+
+  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  struct dir_entry *parent_entries = NULL;
+  int parent_entry_count = 0;
+
+  /* ===== 親ディレクトリの実体を決定 ===== */
+  if (parent_cluster == 0) {
+    // ルートディレクトリ
+    parent_entries = root_dir;
+    parent_entry_count = BPB_RootEntCnt;
+  } else {
+    // サブディレクトリ
+    read_cluster(parent_cluster, buf);
+    parent_entries = buf;
+    parent_entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+  }
+
+  /* ===== 空きエントリ探索 ===== */
+  int entry_index = -1;
+  for (int i = 0; i < parent_entry_count; i++) {
+    if (parent_entries[i].name[0] == 0x00 ||
+        (uint8_t)parent_entries[i].name[0] == 0xE5) {
+      entry_index = i;
+      break;
+    }
+  }
+
+  if (entry_index < 0) {
+    kprintf("[FAT16] ERROR: Directory full.\n");
+    return -1;
+  }
+
+  /* ===== 空きクラスタ探索 ===== */
+  uint16_t new_cluster = 0;
+  for (uint16_t i = 2; i < FAT_ENTRY_NUM; i++) {
+    if (fat[i] == 0x0000) {
+      new_cluster = i;
+      break;
+    }
+  }
+
+  if (new_cluster == 0) {
+    kprintf("[FAT16] ERROR: No free cluster.\n");
+    return -1;
+  }
+
+  fat[new_cluster] = 0xFFFF; // EOC
+
+  /* ===== 親ディレクトリにエントリ追加 ===== */
+  struct dir_entry *de = &parent_entries[entry_index];
+  memset(de, 0, sizeof(struct dir_entry));
+  memset(de->name, ' ', 8);
+  memset(de->ext, ' ', 3);
+
+  int n = 0;
+  while (n < 8 && name[n] && name[n] != '.') {
+    de->name[n] = name[n];
+    n++;
+  }
+
+  de->attr = 0x10; // ATTR_DIRECTORY
+  de->start_cluster = new_cluster;
+  de->size = 0;
+
+  /* ===== 新ディレクトリの中身を作る ===== */
+  struct dir_entry newbuf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  memset(newbuf, 0, sizeof(newbuf));
+
+  // "."
+  memset(newbuf[0].name, ' ', 8);
+  memset(newbuf[0].ext, ' ', 3);
+  newbuf[0].name[0] = '.';
+  newbuf[0].attr = 0x10;
+  newbuf[0].start_cluster = new_cluster;
+
+  // ".."
+  memset(newbuf[1].name, ' ', 8);
+  memset(newbuf[1].ext, ' ', 3);
+  newbuf[1].name[0] = '.';
+  newbuf[1].name[1] = '.';
+  newbuf[1].attr = 0x10;
+  newbuf[1].start_cluster = parent_cluster;
+
+  /* ===== 書き戻し ===== */
+  write_cluster(new_cluster, newbuf);
+  write_fat_to_disk();
+
+  if (parent_cluster == 0) {
+    write_root_dir_to_disk();
+  } else {
+    write_cluster(parent_cluster, parent_entries);
+  }
+
+  kprintf("[FAT16] Directory created: %s (cluster %d)\n", name, new_cluster);
+  return 0;
+}
+
+// カレントディレクトリを移動させる
+int current_directory(const char *name) {
+  if (strcmp(name, "/") == 0) {
+    current_dir_cluster = 0;
+    return 0;
+  }
+
+  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+
+  if (current_dir_cluster == 0) {
+    // 0なのでルート
+    for (int i = 0; i < BPB_RootEntCnt; i++) {
+      struct dir_entry *de = &root_dir[i];
+      if (de->name[0] == 0x00)
+        break;
+      if (!(de->attr & 0x10))
+        continue;
+      // cd <名前>
+      if (name_match(de, name)) {
+        current_dir_cluster = de->start_cluster;
+        update_current_path_on_cd(name);
+        return 0;
+      }
+    }
+  } else {
+    read_cluster(current_dir_cluster, buf);
+    for (int i = 0; i < BPB_BytsPerSec / sizeof(struct dir_entry); i++) {
+      struct dir_entry *de = &buf[i];
+      if (de->name[0] == 0x00)
+        break;
+      if (!(de->attr & 0x10))
+        continue;
+
+      // cd ..
+      if (name[0] == '.' && name[1] == '.' && name[2] == '\0') {
+        if (de->name[0] == '.' && de->name[1] == '.') {
+          current_dir_cluster = de->start_cluster;
+          update_current_path_on_cd(name);
+          return 0;
+        }
+        continue;
+      }
+
+      // cd <名前>
+      if (name_match(de, name)) {
+        current_dir_cluster = de->start_cluster;
+        update_current_path_on_cd(name);
+        return 0;
+      }
+    }
+  }
+  kprintf("[cd] directory not found: %s\n", name);
+  return -1;
+}
+
+int name_match(const struct dir_entry *de, const char *name) {
+  char fat_name[9];
+  memset(fat_name, 0, sizeof(fat_name));
+
+  // name[8] をコピー（末尾スペース除去）
+  for (int i = 0; i < 8; i++) {
+    if (de->name[i] == ' ')
+      break;
+    fat_name[i] = de->name[i];
+  }
+
+  return strcmp(fat_name, name) == 0;
+}
+
+void update_current_path_on_cd(const char *name) {
+  if (strcmp(name, "/") == 0) {
+    strcpy(current_path, "/");
+    return;
+  }
+
+  if (strcmp(name, "..") == 0) {
+    if (strcmp(current_path, "/") == 0)
+      return;
+
+    // 末尾の /foo を削除
+    char *p = strrchr(current_path, '/');
+    if (p == current_path) {
+      // "/foo" → "/"
+      current_path[1] = '\0';
+    } else if (p) {
+      *p = '\0';
+    }
+    return;
+  }
+
+  // 通常の cd foo
+  if (strcmp(current_path, "/") != 0)
+    strcat(current_path, "/");
+  strcat(current_path, name);
+}
+
+void print_working_directory(void) { kprintf("%s\n", current_path); }

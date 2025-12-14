@@ -27,6 +27,8 @@ void main(void) {
       sys_list_root_dir();
     else if (strcmp(cmdline, "cat") == 0)
       sys_concatenate();
+    else if (strcmp(cmdline, "pwd") == 0)
+      sys_print_working_directory();
     else if (strcmp(cmdline, "ohgiri") == 0) {
       int r = rand() % 3;
       if (r == 0)
