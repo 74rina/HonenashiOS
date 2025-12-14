@@ -306,20 +306,38 @@ int make_dir(uint16_t parent_cluster, const char *name) {
   read_fat_from_disk();
   read_root_dir_from_disk();
 
-  // 空きエントリを探す
+  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  struct dir_entry *parent_entries = NULL;
+  int parent_entry_count = 0;
+
+  /* ===== 親ディレクトリの実体を決定 ===== */
+  if (parent_cluster == 0) {
+    // ルートディレクトリ
+    parent_entries = root_dir;
+    parent_entry_count = BPB_RootEntCnt;
+  } else {
+    // サブディレクトリ
+    read_cluster(parent_cluster, buf);
+    parent_entries = buf;
+    parent_entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+  }
+
+  /* ===== 空きエントリ探索 ===== */
   int entry_index = -1;
-  for (int i = 0; i < BPB_RootEntCnt; i++) {
-    if (root_dir[i].name[0] == 0x00 || (uint8_t)root_dir[i].name[0] == 0xE5) {
+  for (int i = 0; i < parent_entry_count; i++) {
+    if (parent_entries[i].name[0] == 0x00 ||
+        (uint8_t)parent_entries[i].name[0] == 0xE5) {
       entry_index = i;
       break;
     }
   }
+
   if (entry_index < 0) {
-    kprintf("[FAT16] ERROR: Root directory full.\n");
+    kprintf("[FAT16] ERROR: Directory full.\n");
     return -1;
   }
 
-  // 空きクラスタを探す
+  /* ===== 空きクラスタ探索 ===== */
   uint16_t new_cluster = 0;
   for (uint16_t i = 2; i < FAT_ENTRY_NUM; i++) {
     if (fat[i] == 0x0000) {
@@ -327,6 +345,7 @@ int make_dir(uint16_t parent_cluster, const char *name) {
       break;
     }
   }
+
   if (new_cluster == 0) {
     kprintf("[FAT16] ERROR: No free cluster.\n");
     return -1;
@@ -334,8 +353,8 @@ int make_dir(uint16_t parent_cluster, const char *name) {
 
   fat[new_cluster] = 0xFFFF; // EOC
 
-  // ディレクトリエントリの設定
-  struct dir_entry *de = &root_dir[entry_index];
+  /* ===== 親ディレクトリにエントリ追加 ===== */
+  struct dir_entry *de = &parent_entries[entry_index];
   memset(de, 0, sizeof(struct dir_entry));
   memset(de->name, ' ', 8);
   memset(de->ext, ' ', 3);
@@ -350,29 +369,34 @@ int make_dir(uint16_t parent_cluster, const char *name) {
   de->start_cluster = new_cluster;
   de->size = 0;
 
-  // 新ディレクトリクラスタに "." と ".." を書く
-  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
-  memset(buf, 0, sizeof(buf));
+  /* ===== 新ディレクトリの中身を作る ===== */
+  struct dir_entry newbuf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  memset(newbuf, 0, sizeof(newbuf));
 
   // "."
-  memset(buf[0].name, ' ', 8);
-  memset(buf[0].ext, ' ', 3);
-  buf[0].name[0] = '.';
-  buf[0].attr = 0x10;
-  buf[0].start_cluster = new_cluster;
+  memset(newbuf[0].name, ' ', 8);
+  memset(newbuf[0].ext, ' ', 3);
+  newbuf[0].name[0] = '.';
+  newbuf[0].attr = 0x10;
+  newbuf[0].start_cluster = new_cluster;
 
-  // ".."（ルートなので 0）
-  memset(buf[1].name, ' ', 8);
-  memset(buf[1].ext, ' ', 3);
-  buf[1].name[0] = '.';
-  buf[1].name[1] = '.';
-  buf[1].attr = 0x10;
-  buf[1].start_cluster = parent_cluster;
+  // ".."
+  memset(newbuf[1].name, ' ', 8);
+  memset(newbuf[1].ext, ' ', 3);
+  newbuf[1].name[0] = '.';
+  newbuf[1].name[1] = '.';
+  newbuf[1].attr = 0x10;
+  newbuf[1].start_cluster = parent_cluster;
 
-  // 書き戻し
-  write_cluster(new_cluster, buf);
+  /* ===== 書き戻し ===== */
+  write_cluster(new_cluster, newbuf);
   write_fat_to_disk();
-  write_root_dir_to_disk();
+
+  if (parent_cluster == 0) {
+    write_root_dir_to_disk();
+  } else {
+    write_cluster(parent_cluster, parent_entries);
+  }
 
   kprintf("[FAT16] Directory created: %s (cluster %d)\n", name, new_cluster);
   return 0;
