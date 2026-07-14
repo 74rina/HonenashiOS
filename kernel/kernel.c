@@ -229,7 +229,12 @@ int kprintf(const char *fmt, ...) {
   return ret;
 }
 
-// Interrupt
+// 割り込み処理 Interrupt
+// sscratch レジスタには、カーネルエントリ用のスタックトップが入っている
+// 1. 現在sp と sscratch の値を swap
+// 2. ↑割り込み用 sp の領域にスタックコンテキストを退避させる
+// 3. handle_trap を呼び出す
+// 4. 割り込み前のスタックコンテキストに戻す（lw）
 __attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void) {
   __asm__ __volatile__("csrrw sp, sscratch, sp\n"
                        "addi sp, sp, -4 * 31\n"
@@ -345,6 +350,10 @@ void handle_syscall(struct trap_frame *f) {
     concatenate();
     yield();
     break;
+  case SYS_PWD:
+    print_working_directory();
+    yield();
+    break;
   default:
     PANIC("unexpected syscall a3=%x\n", f->a3);
   }
@@ -365,10 +374,6 @@ void handle_trap(struct trap_frame *f) {
 
   WRITE_CSR(sepc, user_pc);
 }
-
-// I/O
-
-// File System
 
 // process_switch_test
 struct process *proc_a;
@@ -428,7 +433,9 @@ void kernel_main(void) {
   kprintf("first sector: %s\n", buf);
 
   create_file("test.txt", "hello", 5);
-  create_file("test2.txt", "hello2", 6);
+  make_dir(0, "testdir");
+  make_dir(3, "unreachable");
+  current_directory("testdir");
 
   create_process(_binary_user_shell_bin_start,
                  (size_t)_binary_user_shell_bin_size);
