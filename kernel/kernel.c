@@ -122,10 +122,11 @@ struct process *create_process(const void *image, size_t image_size) {
   return proc;
 }
 
+// コンテキストスイッチのモジュール
 __attribute__((naked)) void switch_context(uint32_t *prev_sp,
                                            uint32_t *next_sp) {
   __asm__ __volatile__(
-      // 実行中プロセスのスタックへレジスタを保存
+      // 現在のレジスタコンテキストを退避させる
       "addi sp, sp, -13 * 4\n"
       "sw ra,  0  * 4(sp)\n"
       "sw s0,  1  * 4(sp)\n"
@@ -141,11 +142,11 @@ __attribute__((naked)) void switch_context(uint32_t *prev_sp,
       "sw s10, 11 * 4(sp)\n"
       "sw s11, 12 * 4(sp)\n"
 
-      // スタックポインタの切り替え
+      // スタックポインタを切り替える
       "sw sp, (a0)\n"
       "lw sp, (a1)\n"
 
-      // 次のプロセスのスタックからレジスタを復元
+      // 次のプロセスのレジスタコンテキストを復元する
       "lw ra,  0  * 4(sp)\n"
       "lw s0,  1  * 4(sp)\n"
       "lw s1,  2  * 4(sp)\n"
@@ -163,6 +164,7 @@ __attribute__((naked)) void switch_context(uint32_t *prev_sp,
       "ret\n");
 }
 
+// プロセス切り替え Process Switch
 void yield(void) {
   // 実行可能なプロセスを探す
   struct process *next = idle_proc;
@@ -174,11 +176,13 @@ void yield(void) {
     }
   }
 
-  // 現在実行中のプロセス以外に、実行可能なプロセスがない。戻って処理を続行する
+  // 現在のプロセス以外に実行可能なものがなければ、何もしない
   if (next == current_proc)
     return;
 
-  // プロセス切り替え時、sscratchレジスタに、実行中プロセスのカーネルスタックの初期値を与える
+  // プロセスを切り替える
+  // 1. 次プロセスのページテーブルのアドレスを satp レジスタに設定する
+  // 2. カーネルスタック（sscratch レジスタの値）も、次プロセスのものに変更する
   __asm__ __volatile__(
       "sfence.vma\n"
       "csrw satp, %[satp]\n"
@@ -231,7 +235,7 @@ int kprintf(const char *fmt, ...) {
 
 // 割り込み処理 Interrupt
 // sscratch レジスタには、カーネルエントリ用のスタックトップが入っている
-// 1. 現在sp と sscratch の値を swap
+// 1. 現在 sp と sscratch の値を swap
 // 2. ↑割り込み用 sp の領域にスタックコンテキストを退避させる
 // 3. handle_trap を呼び出す
 // 4. 割り込み前のスタックコンテキストに戻す（lw）

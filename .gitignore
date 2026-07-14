@@ -7,3 +7,6 @@
 # object files
 *.o
 *.a
+
+# memo
+*.rtf

@@ -67,3 +67,7 @@ yieldスケジューラのまとめ
 ２、yield はまずアイドルプロセスを next にセット。
 ３、通常プロセスがあれば next に切り替え、なければアイドルを走らせる。
 */
+
+/*
+csrw命令 = CSR(Control and Status Register) の特殊なレジスタを書き換える
+*/
