@@ -229,7 +229,12 @@ int kprintf(const char *fmt, ...) {
   return ret;
 }
 
-// Interrupt
+// 割り込み処理 Interrupt
+// sscratch レジスタには、カーネルエントリ用のスタックトップが入っている
+// 1. 現在sp と sscratch の値を swap
+// 2. ↑割り込み用 sp の領域にスタックコンテキストを退避させる
+// 3. handle_trap を呼び出す
+// 4. 割り込み前のスタックコンテキストに戻す（lw）
 __attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void) {
   __asm__ __volatile__("csrrw sp, sscratch, sp\n"
                        "addi sp, sp, -4 * 31\n"
