@@ -42,7 +42,7 @@ void handle_syscall(struct trap_frame *f) {
     break;
 
   case SYS_CONCATENATE:
-    concatenate();
+    concatenate((const char *)f->a0);
     yield();
     break;
 

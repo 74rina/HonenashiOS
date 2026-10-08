@@ -35,7 +35,6 @@ __attribute__((noreturn)) void sys_exit(void) {
 }
 
 int sys_create_file(const char *name, const uint8_t *data, uint32_t size) {
-  // todo: 壊れてる
   syscall(SYS_CREATE_FILE, 0, 0, 0);
 }
 
@@ -50,6 +49,8 @@ int printf(const char *fmt, ...) {
 
 void sys_list_root_dir() { syscall(SYS_LIST_FILE, 0, 0, 0); }
 
-void sys_concatenate() { syscall(SYS_CONCATENATE, 0, 0, 0); }
+void sys_concatenate(const char *filename) {
+  syscall(SYS_CONCATENATE, (int)filename, 0, 0);
+}
 
 void sys_print_working_directory() { syscall(SYS_PWD, 0, 0, 0); }

@@ -206,7 +206,7 @@ void kernel_main(void) {
   create_file("test.txt", "hello", 5);
   make_dir(0, "testdir");
   make_dir(3, "unreachable");
-  current_directory("testdir");
+  // current_directory("testdir");
 
   create_process(_binary_user_shell_bin_start,
                  (size_t)_binary_user_shell_bin_size);
