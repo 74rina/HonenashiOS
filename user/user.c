@@ -35,6 +35,7 @@ __attribute__((noreturn)) void sys_exit(void) {
 }
 
 int sys_create_file(const char *name, const uint8_t *data, uint32_t size) {
+  // todo: 壊れてる
   syscall(SYS_CREATE_FILE, 0, 0, 0);
 }
 

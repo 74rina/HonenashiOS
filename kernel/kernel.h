@@ -1,11 +1,6 @@
 #pragma once
 #include "../common/common.h"
 
-struct sbiret {
-  long error;
-  long value;
-};
-
 #define PANIC(fmt, ...)                                                        \
   do {                                                                         \
     kprintf("PANIC: %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);     \
@@ -73,6 +68,9 @@ struct process {
   uint8_t stack[8192];
 };
 
+extern struct process *current_proc;
+extern struct process *idle_proc;
+
 #define SATP_SV32 (1u << 31)
 #define PAGE_V (1 << 0) // 有効化ビット
 #define PAGE_R (1 << 1) // 読み込み可能
@@ -86,5 +84,10 @@ struct process {
 #define SCAUSE_ECALL 8
 
 paddr_t alloc_pages(uint32_t n);
+void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags);
+struct process *create_process(const void *image, size_t image_size);
 void putchar(char ch);
+long getchar(void);
 int kprintf(const char *fmt, ...);
+void yield(void);
+void handle_syscall(struct trap_frame *f);

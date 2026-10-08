@@ -11,7 +11,8 @@ $OBJCOPY --set-section-flags .bss=alloc,contents -O binary user/shell.elf user/s
 $OBJCOPY -Ibinary -Oelf32-littleriscv user/shell.bin user/shell.bin.o
 
 $CC $CFLAGS -Wl,-Tkernel.ld -Wl,-Map=kernel.map -o kernel/kernel.elf \
-    kernel/kernel.c common/common.c kernel/drivers/virtio.c kernel/filesystem/fat16.c user/shell.bin.o
+    kernel/kernel.c kernel/process.c kernel/sbi.c kernel/syscall.c common/common.c \
+    kernel/drivers/virtio.c kernel/fs/fat16.c user/shell.bin.o
 
 qemu-system-riscv32 -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
     -drive id=drive0,file=fat16.img,format=raw,if=none \

@@ -1,7 +1,7 @@
 #include "kernel.h"
 #include "../common/common.h"
 #include "drivers/virtio.h"
-#include "filesystem/fat16.h"
+#include "fs/fat16.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
@@ -11,10 +11,6 @@ extern char __kernel_base[];
 extern char __bss[], __bss_end[], __stack_top[];
 extern char __free_ram[], __free_ram_end[];
 extern char _binary_user_shell_bin_start[], _binary_user_shell_bin_size[];
-
-struct process procs[PROCS_MAX];
-struct process *current_proc;
-struct process *idle_proc;
 
 // Simple Memory Allocaltion
 paddr_t alloc_pages(uint32_t n) {
@@ -49,188 +45,6 @@ void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags) {
   uint32_t vpn0 = (vaddr >> 12) & 0x3ff;
   uint32_t *table0 = (uint32_t *)((table1[vpn1] >> 10) * PAGE_SIZE);
   table0[vpn0] = ((paddr / PAGE_SIZE) << 10) | flags | PAGE_V;
-}
-
-__attribute__((naked)) void user_entry(void) {
-  __asm__ __volatile__("csrw sepc, %[sepc]\n"
-                       "csrw sstatus, %[sstatus]\n"
-                       "sret\n"
-                       :
-                       : [sepc] "r"(USER_BASE), [sstatus] "r"(SSTATUS_SPIE));
-}
-
-// Processes
-struct process *create_process(const void *image, size_t image_size) {
-  struct process *proc = NULL;
-  int i;
-  for (i = 0; i < PROCS_MAX; i++) {
-    if (procs[i].state == PROC_UNUSED) {
-      proc = &procs[i];
-      break;
-    }
-  }
-
-  if (!proc)
-    PANIC("no free process slots");
-
-  uint32_t *sp = (uint32_t *)&proc->stack[sizeof(proc->stack)];
-  *--sp = 0;                    // s11
-  *--sp = 0;                    // s10
-  *--sp = 0;                    // s9
-  *--sp = 0;                    // s8
-  *--sp = 0;                    // s7
-  *--sp = 0;                    // s6
-  *--sp = 0;                    // s5
-  *--sp = 0;                    // s4
-  *--sp = 0;                    // s3
-  *--sp = 0;                    // s2
-  *--sp = 0;                    // s1
-  *--sp = 0;                    // s0
-  *--sp = (uint32_t)user_entry; // ra
-
-  uint32_t *page_table = (uint32_t *)alloc_pages(1);
-
-  // カーネルのページをマッピングする
-  for (paddr_t paddr = (paddr_t)__kernel_base; paddr < (paddr_t)__free_ram_end;
-       paddr += PAGE_SIZE)
-    map_page(page_table, paddr, paddr, PAGE_R | PAGE_W | PAGE_X);
-
-  // MMIO領域をマッピングする
-  map_page(page_table, VIRTIO_BLK_PADDR, VIRTIO_BLK_PADDR, PAGE_R | PAGE_W);
-
-  // ユーザーのページをマッピングする
-  for (uint32_t off = 0; off < image_size; off += PAGE_SIZE) {
-    paddr_t page = alloc_pages(1);
-
-    // コピーするデータがページサイズより小さい場合を考慮
-    size_t remaining = image_size - off;
-    size_t copy_size = PAGE_SIZE <= remaining ? PAGE_SIZE : remaining;
-
-    // 確保したページにデータをコピー
-    memcpy((void *)page, image + off, copy_size);
-
-    // ページテーブルにマッピング
-    map_page(page_table, USER_BASE + off, page,
-             PAGE_U | PAGE_R | PAGE_W | PAGE_X);
-  }
-
-  // 各フィールドを初期化
-  proc->pid = i + 1;
-  proc->state = PROC_RUNNABLE;
-  proc->sp = (uint32_t)sp;
-  proc->page_table = page_table;
-  return proc;
-}
-
-// コンテキストスイッチのモジュール
-__attribute__((naked)) void switch_context(uint32_t *prev_sp,
-                                           uint32_t *next_sp) {
-  __asm__ __volatile__(
-      // 現在のレジスタコンテキストを退避させる
-      "addi sp, sp, -13 * 4\n"
-      "sw ra,  0  * 4(sp)\n"
-      "sw s0,  1  * 4(sp)\n"
-      "sw s1,  2  * 4(sp)\n"
-      "sw s2,  3  * 4(sp)\n"
-      "sw s3,  4  * 4(sp)\n"
-      "sw s4,  5  * 4(sp)\n"
-      "sw s5,  6  * 4(sp)\n"
-      "sw s6,  7  * 4(sp)\n"
-      "sw s7,  8  * 4(sp)\n"
-      "sw s8,  9  * 4(sp)\n"
-      "sw s9,  10 * 4(sp)\n"
-      "sw s10, 11 * 4(sp)\n"
-      "sw s11, 12 * 4(sp)\n"
-
-      // スタックポインタを切り替える
-      "sw sp, (a0)\n"
-      "lw sp, (a1)\n"
-
-      // 次のプロセスのレジスタコンテキストを復元する
-      "lw ra,  0  * 4(sp)\n"
-      "lw s0,  1  * 4(sp)\n"
-      "lw s1,  2  * 4(sp)\n"
-      "lw s2,  3  * 4(sp)\n"
-      "lw s3,  4  * 4(sp)\n"
-      "lw s4,  5  * 4(sp)\n"
-      "lw s5,  6  * 4(sp)\n"
-      "lw s6,  7  * 4(sp)\n"
-      "lw s7,  8  * 4(sp)\n"
-      "lw s8,  9  * 4(sp)\n"
-      "lw s9,  10 * 4(sp)\n"
-      "lw s10, 11 * 4(sp)\n"
-      "lw s11, 12 * 4(sp)\n"
-      "addi sp, sp, 13 * 4\n"
-      "ret\n");
-}
-
-// プロセス切り替え Process Switch
-void yield(void) {
-  // 実行可能なプロセスを探す
-  struct process *next = idle_proc;
-  for (int i = 0; i < PROCS_MAX; i++) {
-    struct process *proc = &procs[(current_proc->pid + i) % PROCS_MAX];
-    if (proc->state == PROC_RUNNABLE && proc->pid > 0) {
-      next = proc;
-      break;
-    }
-  }
-
-  // 現在のプロセス以外に実行可能なものがなければ、何もしない
-  if (next == current_proc)
-    return;
-
-  // プロセスを切り替える
-  // 1. 次プロセスのページテーブルのアドレスを satp レジスタに設定する
-  // 2. カーネルスタック（sscratch レジスタの値）も、次プロセスのものに変更する
-  __asm__ __volatile__(
-      "sfence.vma\n"
-      "csrw satp, %[satp]\n"
-      "sfence.vma\n"
-      "csrw sscratch, %[sscratch]\n"
-      :
-      : [satp] "r"(SATP_SV32 | ((uint32_t)next->page_table / PAGE_SIZE)),
-        [sscratch] "r"((uint32_t)&next->stack[sizeof(next->stack)]));
-
-  // コンテキストスイッチ
-  struct process *prev = current_proc;
-  current_proc = next;
-  switch_context(&prev->sp, &next->sp);
-}
-
-// sbi_call
-struct sbiret sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
-                       long arg5, long fid, long eid) {
-  register long a0 __asm__("a0") = arg0;
-  register long a1 __asm__("a1") = arg1;
-  register long a2 __asm__("a2") = arg2;
-  register long a3 __asm__("a3") = arg3;
-  register long a4 __asm__("a4") = arg4;
-  register long a5 __asm__("a5") = arg5;
-  register long a6 __asm__("a6") = fid;
-  register long a7 __asm__("a7") = eid;
-
-  __asm__ __volatile__("ecall"
-                       : "=r"(a0), "=r"(a1)
-                       : "r"(a0), "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(a5),
-                         "r"(a6), "r"(a7)
-                       : "memory");
-  return (struct sbiret){.error = a0, .value = a1};
-}
-
-// デバッグ用
-void putchar(char ch) { sbi_call(ch, 0, 0, 0, 0, 0, 0, 1); }
-long getchar(void) {
-  struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
-  return ret.error;
-}
-int vprintf(void (*putc)(char), const char *fmt, va_list vargs);
-int kprintf(const char *fmt, ...) {
-  va_list vargs;
-  va_start(vargs, fmt);
-  int ret = vprintf(putchar, fmt, vargs);
-  va_end(vargs);
-  return ret;
 }
 
 // 割り込み処理 Interrupt
@@ -316,53 +130,6 @@ __attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void) {
                        "sret\n");
 }
 
-// sbi legacy extension
-void handle_syscall(struct trap_frame *f) {
-  switch (f->a3) {
-  case SYS_PUTCHAR:
-    putchar(f->a0);
-    break;
-  case SYS_GETCHAR:
-    while (1) {
-      long ch = getchar();
-      if (ch >= 0) {
-        f->a0 = ch;
-        break;
-      }
-      yield();
-    }
-    break;
-  case SYS_EXIT:
-    kprintf("process %d exited\n", current_proc->pid);
-    current_proc->state = PROC_EXITED;
-    yield();
-    PANIC("unreachable");
-  case SYS_CREATE_FILE:
-    while (1) {
-      /*
-      long filename = getchar()もどき
-      create_file(filename, filenameの長さ);
-      yield();
-      */
-    }
-    break;
-  case SYS_LIST_FILE:
-    list_root_dir();
-    yield();
-    break;
-  case SYS_CONCATENATE:
-    concatenate();
-    yield();
-    break;
-  case SYS_PWD:
-    print_working_directory();
-    yield();
-    break;
-  default:
-    PANIC("unexpected syscall a3=%x\n", f->a3);
-  }
-}
-
 void handle_trap(struct trap_frame *f) {
   uint32_t scause = READ_CSR(scause);
   uint32_t stval = READ_CSR(stval);
@@ -406,7 +173,7 @@ void proc_b_entry(void) {
   }
 }
 
-// Start
+// Boot
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
   __asm__ __volatile__("mv sp, %[stack_top]\n"
                        "j kernel_main\n"
