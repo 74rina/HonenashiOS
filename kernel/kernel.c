@@ -208,9 +208,9 @@ void kernel_main(void) {
       "This file is created by kernel_main for cat testing.\n";
 
   create_file("test.txt", "hello", 5);
-  create_file("lorem.txt", lorem_txt, sizeof(lorem_txt) - 1);
   make_dir(0, "testdir");
   make_dir(3, "unreachable");
+  create_file("lorem.txt", lorem_txt, sizeof(lorem_txt) - 1);
   // current_directory("testdir");
 
   create_process(_binary_user_shell_bin_start,

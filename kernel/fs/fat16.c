@@ -371,6 +371,7 @@ int make_dir(uint16_t parent_cluster, const char *name) {
 int current_directory(const char *name) {
   if (strcmp(name, "/") == 0) {
     current_dir_cluster = 0;
+    update_current_path_on_cd(name);
     return 0;
   }
 

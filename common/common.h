@@ -21,13 +21,6 @@ typedef void (*putc_fn_t)(char);
 #define va_end __builtin_va_end
 #define va_arg __builtin_va_arg
 #define PAGE_SIZE 4096
-#define SYS_PUTCHAR 1
-#define SYS_GETCHAR 2
-#define SYS_EXIT 3
-#define SYS_CREATE_FILE 4
-#define SYS_LIST_FILE 5
-#define SYS_CONCATENATE 6
-#define SYS_PWD 7
 
 void *memset(void *buf, char c, size_t n);
 void *memcpy(void *dst, const void *src, size_t n);

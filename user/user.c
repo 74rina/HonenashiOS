@@ -1,5 +1,6 @@
 #include "user.h"
 #include "../common/common.h"
+#include "../common/syscall.h"
 
 extern char __stack_top[];
 
@@ -54,3 +55,7 @@ void sys_concatenate(const char *filename) {
 }
 
 void sys_print_working_directory() { syscall(SYS_PWD, 0, 0, 0); }
+
+void sys_current_directory(const char *path) {
+  syscall(SYS_CD, (int)path, 0, 0);
+}

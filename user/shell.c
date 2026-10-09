@@ -37,6 +37,14 @@ void main(void) {
         sys_concatenate(filename);
       }
 
+    } else if (strncmp(cmdline, "cd ", 3) == 0) {
+      const char *path = cmdline + 3;
+      if (*path == '\0') {
+        printf("usage: cd path\n");
+      } else {
+        sys_current_directory(path);
+      }
+
     } else if (strcmp(cmdline, "pwd") == 0)
       sys_print_working_directory();
 
