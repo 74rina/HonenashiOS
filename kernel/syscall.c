@@ -39,10 +39,15 @@ void handle_syscall(struct trap_frame *f) {
     }
     break;
 
-  case SYS_LIST_FILE:
-    list_root_dir();
+  case SYS_LIST_FILE: {
+    char dir_path[MAX_SYSCALL_PATH];
+    if (strncpy_from_user(dir_path, (const char *)f->a0, sizeof(dir_path)) < 0)
+      kprintf("ls: invalid directory path\n");
+    else
+      list_files(dir_path);
     yield();
     break;
+  }
 
   case SYS_CONCATENATE: {
     char filename[MAX_SYSCALL_PATH];

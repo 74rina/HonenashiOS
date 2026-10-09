@@ -31,6 +31,7 @@ uint16_t fat[FAT_ENTRY_NUM];
 struct dir_entry root_dir[BPB_RootEntCnt];
 
 #define ATTR_DIRECTORY 0x10
+#define ATTR_LONG_NAME 0x0f
 
 void read_fat_from_disk(void);
 void write_fat_to_disk(void);
@@ -51,7 +52,7 @@ void write_cluster(uint16_t cluster, void *buf) {
   }
 }
 
-// ファイルを作る
+// DEBUG: ファイルを作る
 int create_file(const char *name, const uint8_t *data, uint32_t size) {
   read_fat_from_disk();
   read_root_dir_from_disk();
@@ -155,48 +156,91 @@ int create_file(const char *name, const uint8_t *data, uint32_t size) {
   return 0;
 }
 
-void list_root_dir() {
-  // 1. ディスクから最新の root_dir を読み込む
-  read_root_dir_from_disk();
+void list_files(const char *dir_path) {
+  struct dir_entry *entries = NULL;
+  struct dir_entry subdir_entries[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  int entry_count = 0;
 
-  kprintf("=== Root Directory ===\n");
+  if (strcmp(dir_path, "/") == 0 || strcmp(dir_path, ".") == 0) {
+    if (strcmp(dir_path, ".") == 0 && current_dir_cluster != 0) {
+      read_cluster(current_dir_cluster, subdir_entries);
+      entries = subdir_entries;
+      entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+    } else {
+      read_root_dir_from_disk();
+      entries = root_dir;
+      entry_count = BPB_RootEntCnt;
+    }
+  } else {
+    const char *lookup_name = dir_path;
+    uint16_t base_cluster = current_dir_cluster;
 
-  for (int i = 0; i < BPB_RootEntCnt; i++) {
-    // 未使用エントリ → ここから先は全部空
-    if (root_dir[i].name[0] == 0x00) {
+    if (dir_path[0] == '/') {
+      lookup_name = dir_path + 1;
+      base_cluster = 0;
+    }
+
+    if (*lookup_name == '\0') {
+      read_root_dir_from_disk();
+      entries = root_dir;
+      entry_count = BPB_RootEntCnt;
+    } else if (strrchr(lookup_name, '/')) {
+      kprintf("[ls] nested path is not supported yet: %s\n", dir_path);
+      return;
+    } else {
+      struct dir_entry *target = iterate_dir(base_cluster, lookup_name);
+
+      if (!target) {
+        kprintf("[ls] directory not found: %s\n", dir_path);
+        return;
+      }
+
+      if (!(target->attr & ATTR_DIRECTORY)) {
+        kprintf("[ls] not a directory: %s\n", dir_path);
+        return;
+      }
+
+      read_cluster(target->start_cluster, subdir_entries);
+      entries = subdir_entries;
+      entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+    }
+  }
+
+  kprintf("=== Directory: %s ===\n", dir_path);
+  for (int i = 0; i < entry_count; i++) {
+    struct dir_entry *de = &entries[i];
+
+    if (de->name[0] == 0x00)
       break;
-    }
-    // 削除済み
-    if (root_dir[i].name[0] == 0xE5) {
+    if ((uint8_t)de->name[0] == 0xE5)
       continue;
-    }
+    if ((de->attr & ATTR_LONG_NAME) == ATTR_LONG_NAME)
+      continue;
 
-    // 2. ファイル名（8 + 3）を組み立て
     char name[13];
     int p = 0;
 
-    // name（8文字）
     for (int j = 0; j < 8; j++) {
-      if (root_dir[i].name[j] != ' ')
-        name[p++] = root_dir[i].name[j];
+      if (de->name[j] != ' ')
+        name[p++] = de->name[j];
     }
 
-    // 拡張子
-    if (root_dir[i].ext[0] != ' ') {
+    if (de->ext[0] != ' ') {
       name[p++] = '.';
       for (int j = 0; j < 3; j++) {
-        if (root_dir[i].ext[j] != ' ')
-          name[p++] = root_dir[i].ext[j];
+        if (de->ext[j] != ' ')
+          name[p++] = de->ext[j];
       }
     }
 
     name[p] = '\0';
 
-    // 3. 表示
-    kprintf("%s  size=", name);
-    kprintf("%d", (int)root_dir[i].size);
-    kprintf("  cluster=");
-    kprintf("%d\n", (int)root_dir[i].start_cluster);
+    kprintf("%s", name);
+    if (de->attr & ATTR_DIRECTORY)
+      kprintf("  <DIR>");
+    else
+      kprintf("  size=%d", (int)de->size);
+    kprintf("  cluster=%d\n", (int)de->start_cluster);
   }
 }
 
@@ -252,7 +296,6 @@ void concatenate(const char *filename) {
   uint8_t buf[size]; // ※簡易実装としてスタック確保
 
   // read_file() でデータ領域を読む
-  // BUG: Cannot read user data in supervisor mode via `strcmp`
   if (read_file(target->start_cluster, buf, size) < 0) {
     kprintf("[cat] read error.\n");
     return;
@@ -402,6 +445,7 @@ int current_directory(const char *name) {
         continue;
 
       // cd ..
+      // DEBUG: `cd .`, `cd ..` は dir に加算しない
       if (name[0] == '.' && name[1] == '.' && name[2] == '\0') {
         if (de->name[0] == '.' && de->name[1] == '.') {
           current_dir_cluster = de->start_cluster;

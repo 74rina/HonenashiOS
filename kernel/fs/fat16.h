@@ -62,7 +62,7 @@ void write_cluster(uint16_t cluster, void *buf);
 int create_file(const char *name, const uint8_t *data, uint32_t size);
 int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size);
 struct dir_entry *iterate_dir(uint16_t dir_cluster, const char *filename);
-void list_root_dir();
+void list_files(const char *dir_path);
 void concatenate(const char *filename);
 int make_dir(uint16_t parent_cluster, const char *name);
 int current_directory(const char *name);
