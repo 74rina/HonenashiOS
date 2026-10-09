@@ -5,21 +5,42 @@ void main(void) {
   prompt:
     printf("> ");
     char cmdline[128];
-    for (int i = 0;; i++) {
+    char *cmd_idx = cmdline;
+    char *cmd_end = cmdline + sizeof(cmdline) - 1;
+
+    for (;;) {
       char ch = getchar();
-      putchar(ch);
-      if (i == sizeof(cmdline) - 1) {
-        printf("command line too long\n");
-        goto prompt;
-      } else if (ch == '\r') {
+
+      // Enter
+      if (ch == '\r') {
         printf("\n");
-        cmdline[i] = '\0';
+        *cmd_idx = '\0';
         break;
-      } else {
-        cmdline[i] = ch;
       }
+
+      // Backspace
+      else if (ch == '\b' || ch == 0x7f) {
+        if (cmd_idx > cmdline) {
+          cmd_idx--;
+          putchar('\b');
+          putchar(' ');
+          putchar('\b');
+        }
+        continue;
+      }
+
+      if (cmd_idx == cmd_end) {
+        printf("\ncommand line too long\n");
+        goto prompt;
+      }
+
+      // Normal input
+      *cmd_idx = ch;
+      cmd_idx++;
+      putchar(ch);
     }
 
+    // Commands
     if (strcmp(cmdline, "hello") == 0)
       printf("Hello world from shell!\n");
 
