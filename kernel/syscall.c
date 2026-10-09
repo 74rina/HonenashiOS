@@ -2,6 +2,8 @@
 #include "fs/fat16.h"
 #include "kernel.h"
 
+#define MAX_SYSCALL_FILENAME 128
+
 // sbi legacy extension
 void handle_syscall(struct trap_frame *f) {
   switch (f->a3) {
@@ -41,10 +43,15 @@ void handle_syscall(struct trap_frame *f) {
     yield();
     break;
 
-  case SYS_CONCATENATE:
-    concatenate((const char *)f->a0);
+  case SYS_CONCATENATE: {
+    char filename[MAX_SYSCALL_FILENAME];
+    if (strncpy_from_user(filename, (const char *)f->a0, sizeof(filename)) < 0)
+      kprintf("cat: invalid filename\n");
+    else
+      concatenate(filename);
     yield();
     break;
+  }
 
   case SYS_PWD:
     print_working_directory();

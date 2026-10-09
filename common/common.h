@@ -32,6 +32,7 @@ typedef void (*putc_fn_t)(char);
 void *memset(void *buf, char c, size_t n);
 void *memcpy(void *dst, const void *src, size_t n);
 char *strcpy(char *dst, const char *src);
+int strncpy_from_user(char *dst, const char *user_src, size_t n);
 int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, uint32_t n);
 char *strrchr(const char *s, int c);
