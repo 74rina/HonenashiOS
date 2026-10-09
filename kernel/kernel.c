@@ -203,7 +203,12 @@ void kernel_main(void) {
   read_write_disk(buf, 0, false);
   kprintf("first sector: %s\n", buf);
 
+  static const uint8_t lorem_txt[] =
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
+      "This file is created by kernel_main for cat testing.\n";
+
   create_file("test.txt", "hello", 5);
+  create_file("lorem.txt", lorem_txt, sizeof(lorem_txt) - 1);
   make_dir(0, "testdir");
   make_dir(3, "unreachable");
   // current_directory("testdir");
