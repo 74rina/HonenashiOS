@@ -157,11 +157,25 @@ int create_file(const char *name, const uint8_t *data, uint32_t size) {
 }
 
 void list_files(const char *dir_path) {
+  struct resolved_path resolved;
   struct dir_entry *entries = NULL;
   struct dir_entry subdir_entries[BPB_BytsPerSec / sizeof(struct dir_entry)];
   int entry_count = 0;
+  const char *display_path = dir_path;
 
-  if (strcmp(dir_path, "/") == 0 || strcmp(dir_path, ".") == 0) {
+  // DEBUG: ?
+  if (resolve_path(dir_path, &resolved) == 0) {
+    display_path = resolved.abs_path;
+    if (resolved.target_cluster == 0) {
+      read_root_dir_from_disk();
+      entries = root_dir;
+      entry_count = BPB_RootEntCnt;
+    } else {
+      read_cluster(resolved.target_cluster, subdir_entries);
+      entries = subdir_entries;
+      entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+    }
+  } else if (strcmp(dir_path, "/") == 0 || strcmp(dir_path, ".") == 0) {
     if (strcmp(dir_path, ".") == 0 && current_dir_cluster != 0) {
       read_cluster(current_dir_cluster, subdir_entries);
       entries = subdir_entries;
@@ -206,7 +220,7 @@ void list_files(const char *dir_path) {
     }
   }
 
-  kprintf("=== Directory: %s ===\n", dir_path);
+  kprintf("=== Directory: %s ===\n", display_path);
   for (int i = 0; i < entry_count; i++) {
     struct dir_entry *de = &entries[i];
 
@@ -273,7 +287,14 @@ int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
 }
 
 void concatenate(const char *filename) {
-  struct dir_entry *target = iterate_dir(current_dir_cluster, filename);
+  struct resolved_path resolved;
+  struct dir_entry *target = NULL;
+
+  if (resolve_path(filename, &resolved) == 0 && resolved.target_exists) {
+    target = &resolved.target;
+  } else {
+    target = iterate_dir(current_dir_cluster, filename);
+  }
 
   if (!target) {
     kprintf("[cat] file not found: %s\n", filename);
@@ -412,6 +433,19 @@ int make_dir(uint16_t parent_cluster, const char *name) {
 
 // カレントディレクトリを移動させる
 int current_directory(const char *name) {
+  struct resolved_path resolved;
+
+  if (resolve_path(name, &resolved) == 0) {
+    if (!resolved.is_directory) {
+      kprintf("[cd] not a directory: %s\n", name);
+      return -1;
+    }
+
+    current_dir_cluster = resolved.target_cluster;
+    strcpy(current_path, resolved.abs_path);
+    return 0;
+  }
+
   if (strcmp(name, "/") == 0) {
     current_dir_cluster = 0;
     update_current_path_on_cd(name);

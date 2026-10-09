@@ -56,12 +56,22 @@ extern uint16_t current_dir_cluster;
 #define MAX_PATH_LEN 256
 extern char current_path[MAX_PATH_LEN];
 
+struct resolved_path {
+  uint16_t parent_cluster;
+  uint16_t target_cluster;
+  struct dir_entry target;
+  bool target_exists;
+  bool is_directory;
+  char abs_path[MAX_PATH_LEN];
+};
+
 void init_fat16_disk();
 void read_cluster(uint16_t cluster, void *buf);
 void write_cluster(uint16_t cluster, void *buf);
 int create_file(const char *name, const uint8_t *data, uint32_t size);
 int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size);
 struct dir_entry *iterate_dir(uint16_t dir_cluster, const char *filename);
+int resolve_path(const char *path, struct resolved_path *resolved);
 void list_files(const char *dir_path);
 void concatenate(const char *filename);
 int make_dir(uint16_t parent_cluster, const char *name);

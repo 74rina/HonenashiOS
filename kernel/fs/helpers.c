@@ -1,6 +1,6 @@
-#include "./fat16.h"
 #include "../drivers/virtio.h"
 #include "../kernel.h"
+#include "./fat16.h"
 
 #define ATTR_LONG_NAME 0x0f
 
@@ -99,4 +99,18 @@ struct dir_entry *iterate_dir(uint16_t dir_cluster, const char *filename) {
   read_cluster(dir_cluster, entries);
   return find_entry_in_dir(entries, BPB_BytsPerSec / sizeof(struct dir_entry),
                            filename);
+}
+
+int resolve_path(const char *path, struct resolved_path *resolved) {
+  if (!path || !resolved || path[0] == '\0')
+    return -1;
+
+  memset(resolved, 0, sizeof(*resolved));
+  resolved->parent_cluster = current_dir_cluster;
+  resolved->target_cluster = current_dir_cluster;
+  strcpy(resolved->abs_path, current_path);
+
+  // TODO: parse! split path into components and resolve ".", "..", "/", and
+  // children.
+  return -1;
 }
