@@ -30,41 +30,14 @@ void init_fat16_disk() {
 uint16_t fat[FAT_ENTRY_NUM];
 struct dir_entry root_dir[BPB_RootEntCnt];
 
-// FAT領域の読み書き
-static void read_fat_from_disk() {
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 0);
-  }
-}
-static void write_fat_to_disk() {
-  // FAT1 書き戻し
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT1_START_SECTOR + i, 1);
-  }
-  // FAT2 書き戻し（ミラー）
-  for (int i = 0; i < BPB_FATSz16; i++) {
-    read_write_disk(&fat[i * (BPB_BytsPerSec / 2)], FAT2_START_SECTOR + i, 1);
-  }
-}
+#define ATTR_DIRECTORY 0x10
 
-// ルートディレクトリの読み書き
-static void read_root_dir_from_disk() {
-  for (int i = 0; i < ROOT_DIR_SECTORS; i++) {
-    read_write_disk(&root_dir[i * (BPB_BytsPerSec / 32)],
-                    ROOT_DIR_START_SECTOR + i, 0);
-  }
-}
-static void write_root_dir_to_disk() {
-  for (int i = 0; i < ROOT_DIR_SECTORS; i++) {
-    read_write_disk(&root_dir[i * (BPB_BytsPerSec / 32)],
-                    ROOT_DIR_START_SECTOR + i, 1);
-  }
-}
+void read_fat_from_disk(void);
+void write_fat_to_disk(void);
+void read_root_dir_from_disk(void);
+void write_root_dir_to_disk(void);
+uint32_t cluster_to_sector(uint16_t cluster);
 
-// データ領域の読み書き
-static inline uint32_t cluster_to_sector(uint16_t cluster) {
-  return DATA_START_SECTOR + (cluster - 2) * BPB_SecPerClus;
-}
 void read_cluster(uint16_t cluster, void *buf) {
   for (int i = 0; i < BPB_SecPerClus; i++) {
     read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
@@ -255,25 +228,16 @@ int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
   return 0;
 }
 
-// 最初のファイルを読む（未完成）
-void concatenate() {
-  // 1. 最新の FAT と root_dir を読み込む（FAT を必ず先に）
-  read_fat_from_disk();
-  read_root_dir_from_disk();
-
-  // 2. 最初の有効エントリを探す
-  struct dir_entry *target = NULL;
-  for (int i = 0; i < 16; i++) {
-    if (root_dir[i].name[0] == 0x00)
-      break; // 以降は空
-    if (root_dir[i].name[0] == 0xE5)
-      continue; // 削除済み
-    target = &root_dir[i];
-    break;
-  }
+void concatenate(const char *filename) {
+  struct dir_entry *target = iterate_dir(current_dir_cluster, filename);
 
   if (!target) {
-    kprintf("[cat] no file.\n");
+    kprintf("[cat] file not found: %s\n", filename);
+    return;
+  }
+
+  if (target->attr & ATTR_DIRECTORY) {
+    kprintf("[cat] is a directory: %s\n", filename);
     return;
   }
 
@@ -283,17 +247,18 @@ void concatenate() {
     return;
   }
 
-  // 3. ファイルサイズぶんのバッファを確保
+  // ファイルサイズぶんのバッファを確保
   uint32_t size = target->size;
   uint8_t buf[size]; // ※簡易実装としてスタック確保
 
-  // 4. read_file() でデータ領域を読む
+  // read_file() でデータ領域を読む
+  // BUG: Cannot read user data in supervisor mode via `strcmp`
   if (read_file(target->start_cluster, buf, size) < 0) {
     kprintf("[cat] read error.\n");
     return;
   }
 
-  // 5. ファイル内容をそのまま表示
+  // ファイル内容をそのまま表示
   kprintf("===== cat: file content =====\n");
   for (uint32_t i = 0; i < size; i++) {
     putchar(buf[i]);
@@ -406,6 +371,7 @@ int make_dir(uint16_t parent_cluster, const char *name) {
 int current_directory(const char *name) {
   if (strcmp(name, "/") == 0) {
     current_dir_cluster = 0;
+    update_current_path_on_cd(name);
     return 0;
   }
 

@@ -1,6 +1,9 @@
+#include "../common/syscall.h"
 #include "../common/common.h"
 #include "fs/fat16.h"
 #include "kernel.h"
+
+#define MAX_SYSCALL_PATH 128
 
 // sbi legacy extension
 void handle_syscall(struct trap_frame *f) {
@@ -41,15 +44,30 @@ void handle_syscall(struct trap_frame *f) {
     yield();
     break;
 
-  case SYS_CONCATENATE:
-    concatenate();
+  case SYS_CONCATENATE: {
+    char filename[MAX_SYSCALL_PATH];
+    if (strncpy_from_user(filename, (const char *)f->a0, sizeof(filename)) < 0)
+      kprintf("cat: invalid filename\n");
+    else
+      concatenate(filename);
     yield();
     break;
+  }
 
   case SYS_PWD:
     print_working_directory();
     yield();
     break;
+
+  case SYS_CD: {
+    char path[MAX_SYSCALL_PATH];
+    if (strncpy_from_user(path, (const char *)f->a0, sizeof(path)) < 0)
+      kprintf("cd: invalid path\n");
+    else
+      current_directory(path);
+    yield();
+    break;
+  }
 
   default:
     PANIC("unexpected syscall a3=%x\n", f->a3);

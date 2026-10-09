@@ -97,6 +97,26 @@ char *strcpy(char *dst, const char *src) {
   return dst;
 }
 
+int strncpy_from_user(char *dst, const char *user_src, size_t n) {
+  if (!dst || !user_src || n == 0)
+    return -1;
+
+  uint32_t sstatus = READ_CSR(sstatus);
+  WRITE_CSR(sstatus, sstatus | SSTATUS_SUM);
+
+  for (size_t i = 0; i < n; i++) {
+    dst[i] = user_src[i];
+    if (dst[i] == '\0') {
+      WRITE_CSR(sstatus, sstatus);
+      return 0;
+    }
+  }
+
+  dst[n - 1] = '\0';
+  WRITE_CSR(sstatus, sstatus);
+  return -1;
+}
+
 int strcmp(const char *s1, const char *s2) {
   while (*s1 && *s2) {
     if (*s1 != *s2)

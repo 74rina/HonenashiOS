@@ -19,16 +19,35 @@ void main(void) {
         cmdline[i] = ch;
       }
     }
+
     if (strcmp(cmdline, "hello") == 0)
       printf("Hello world from shell!\n");
+
     else if (strcmp(cmdline, "exit") == 0)
       sys_exit();
+
     else if (strcmp(cmdline, "ls") == 0)
       sys_list_root_dir();
-    else if (strcmp(cmdline, "cat") == 0)
-      sys_concatenate();
-    else if (strcmp(cmdline, "pwd") == 0)
+
+    else if (strncmp(cmdline, "cat ", 4) == 0) {
+      const char *filename = cmdline + 4;
+      if (*filename == '\0') {
+        printf("usage: cat filename\n");
+      } else {
+        sys_concatenate(filename);
+      }
+
+    } else if (strncmp(cmdline, "cd ", 3) == 0) {
+      const char *path = cmdline + 3;
+      if (*path == '\0') {
+        printf("usage: cd path\n");
+      } else {
+        sys_current_directory(path);
+      }
+
+    } else if (strcmp(cmdline, "pwd") == 0)
       sys_print_working_directory();
+
     else if (strcmp(cmdline, "ohgiri") == 0) {
       int r = rand() % 3;
       if (r == 0)

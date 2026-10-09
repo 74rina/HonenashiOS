@@ -8,6 +8,7 @@
     }                                                                          \
   } while (0)
 
+// Register Context (when trapped via ecall())
 struct trap_frame {
   uint32_t ra;
   uint32_t gp;
@@ -42,6 +43,7 @@ struct trap_frame {
   uint32_t sp;
 } __attribute__((packed));
 
+// Read / Write CSR (Control and Status Register)
 #define READ_CSR(reg)                                                          \
   ({                                                                           \
     unsigned long __tmp;                                                       \
@@ -80,7 +82,9 @@ extern struct process *idle_proc;
 
 #define USER_BASE 0x1000000
 
+// Access right in supervisor mode
 #define SSTATUS_SPIE (1 << 5)
+#define SSTATUS_SUM (1 << 18)
 #define SCAUSE_ECALL 8
 
 paddr_t alloc_pages(uint32_t n);
