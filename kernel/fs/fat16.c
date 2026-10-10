@@ -37,124 +37,6 @@ void read_fat_from_disk(void);
 void write_fat_to_disk(void);
 void read_root_dir_from_disk(void);
 void write_root_dir_to_disk(void);
-uint32_t cluster_to_sector(uint16_t cluster);
-
-void read_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 0);
-  }
-}
-void write_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 1);
-  }
-}
-
-// DEBUG: ファイルを作る
-int create_file(const char *name, const uint8_t *data, uint32_t size) {
-  read_fat_from_disk();
-  read_root_dir_from_disk();
-
-  // root_dir 空きエントリ探索
-  int entry_index = -1;
-  for (int i = 0; i < BPB_RootEntCnt; i++) {
-    if (root_dir[i].name[0] == 0x00 || root_dir[i].name[0] == 0xE5) {
-      entry_index = i;
-      break;
-    }
-  }
-  if (entry_index < 0) {
-    kprintf("[FAT16] ERROR: Root directory is full. Cannot create new file.\n");
-    return -1;
-  }
-
-  // 最初のクラスタ確保
-  int free_cluster = -1;
-  for (int i = 2; i < FAT_ENTRY_NUM; i++) {
-    if (fat[i] == 0x0000) {
-      free_cluster = i;
-      break;
-    }
-  }
-  if (free_cluster < 0) {
-    kprintf("[FAT16] ERROR: no free FAT cluster.\n");
-    return -1;
-  }
-
-  // ディレクトリエントリの設定
-  struct dir_entry *de = &root_dir[entry_index];
-  memset(de->name, ' ', 8);
-  memset(de->ext, ' ', 3);
-
-  int n = 0;
-  while (n < 8 && name[n] && name[n] != '.') {
-    de->name[n] = name[n];
-    n++;
-  }
-  if (name[n] == '.') {
-    n++;
-    for (int e = 0; e < 3 && name[n + e]; e++) {
-      de->ext[e] = name[n + e];
-    }
-  }
-
-  de->start_cluster = free_cluster;
-  de->size = size;
-
-  // データ書き込み
-  uint32_t remaining = size;
-  uint16_t cluster = free_cluster;
-  uint8_t cluster_buf[BPB_BytsPerSec * BPB_SecPerClus];
-
-  while (remaining > 0) {
-    uint32_t to_write = remaining;
-    if (to_write > BPB_BytsPerSec * BPB_SecPerClus)
-      to_write = BPB_BytsPerSec * BPB_SecPerClus;
-
-    if (data) {
-      memcpy(cluster_buf, data, to_write);
-      data += to_write;
-    } else {
-      memset(cluster_buf, 0, to_write);
-    }
-    if (to_write < BPB_BytsPerSec * BPB_SecPerClus)
-      memset(cluster_buf + to_write, 0,
-             BPB_BytsPerSec * BPB_SecPerClus - to_write);
-
-    write_cluster(cluster, cluster_buf);
-    remaining -= to_write;
-
-    if (remaining > 0) {
-      // 次クラスタを確保
-      uint16_t next_cluster = 0;
-      for (uint16_t i = 2; i < FAT_ENTRY_NUM; i++) {
-        if (fat[i] == 0x0000) {
-          next_cluster = i;
-          break;
-        }
-      }
-      if (next_cluster == 0) {
-        kprintf("[FAT16] ERROR: not enough clusters.\n");
-        return -1;
-      }
-      fat[cluster] = next_cluster;
-      fat[next_cluster] = 0xFFFF;
-      cluster = next_cluster;
-    } else {
-      fat[cluster] = 0xFFFF; // 最後のクラスタ
-    }
-  }
-
-  // 書き戻し
-  write_fat_to_disk();
-  write_root_dir_to_disk();
-
-  kprintf("[FAT16] File created: %s at entry %d, cluster %d\n", name,
-          entry_index, free_cluster);
-  return 0;
-}
 
 void list_files(const char *dir_path) {
   struct resolved_path resolved;
@@ -163,8 +45,12 @@ void list_files(const char *dir_path) {
   int entry_count = 0;
   const char *display_path = dir_path;
 
-  // DEBUG: ?
   if (resolve_path(dir_path, &resolved) == 0) {
+    if (!resolved.is_directory) {
+      kprintf("[ls] not a directory: %s\n", dir_path);
+      return;
+    }
+
     display_path = resolved.abs_path;
     if (resolved.target_cluster == 0) {
       read_root_dir_from_disk();
@@ -258,7 +144,6 @@ void list_files(const char *dir_path) {
   }
 }
 
-// ファイル読み込んでRAMに置く
 int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
   read_fat_from_disk();
 
@@ -329,6 +214,26 @@ void concatenate(const char *filename) {
   }
   kprintf("\n===== end =====\n");
 }
+
+int current_directory(const char *name) {
+  struct resolved_path resolved;
+
+  if (resolve_path(name, &resolved) < 0) {
+    kprintf("[cd] directory not found: %s\n", name);
+    return -1;
+  }
+
+  if (!resolved.is_directory) {
+    kprintf("[cd] not a directory: %s\n", name);
+    return -1;
+  }
+
+  current_dir_cluster = resolved.target_cluster;
+  strcpy(current_path, resolved.abs_path);
+  return 0;
+}
+
+void print_working_directory(void) { kprintf("%s\n", current_path); }
 
 // サブディレクトリを作る
 int make_dir(uint16_t parent_cluster, const char *name) {
@@ -431,115 +336,106 @@ int make_dir(uint16_t parent_cluster, const char *name) {
   return 0;
 }
 
-// カレントディレクトリを移動させる
-int current_directory(const char *name) {
-  struct resolved_path resolved;
+// ファイルを作る
+int create_file(const char *name, const uint8_t *data, uint32_t size) {
+  read_fat_from_disk();
+  read_root_dir_from_disk();
 
-  if (resolve_path(name, &resolved) == 0) {
-    if (!resolved.is_directory) {
-      kprintf("[cd] not a directory: %s\n", name);
-      return -1;
-    }
-
-    current_dir_cluster = resolved.target_cluster;
-    strcpy(current_path, resolved.abs_path);
-    return 0;
-  }
-
-  if (strcmp(name, "/") == 0) {
-    current_dir_cluster = 0;
-    update_current_path_on_cd(name);
-    return 0;
-  }
-
-  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
-
-  if (current_dir_cluster == 0) {
-    // 0なのでルート
-    for (int i = 0; i < BPB_RootEntCnt; i++) {
-      struct dir_entry *de = &root_dir[i];
-      if (de->name[0] == 0x00)
-        break;
-      if (!(de->attr & 0x10))
-        continue;
-      // cd <名前>
-      if (name_match(de, name)) {
-        current_dir_cluster = de->start_cluster;
-        update_current_path_on_cd(name);
-        return 0;
-      }
-    }
-  } else {
-    read_cluster(current_dir_cluster, buf);
-    for (int i = 0; i < BPB_BytsPerSec / sizeof(struct dir_entry); i++) {
-      struct dir_entry *de = &buf[i];
-      if (de->name[0] == 0x00)
-        break;
-      if (!(de->attr & 0x10))
-        continue;
-
-      // cd ..
-      // DEBUG: `cd .`, `cd ..` は dir に加算しない
-      if (name[0] == '.' && name[1] == '.' && name[2] == '\0') {
-        if (de->name[0] == '.' && de->name[1] == '.') {
-          current_dir_cluster = de->start_cluster;
-          update_current_path_on_cd(name);
-          return 0;
-        }
-        continue;
-      }
-
-      // cd <名前>
-      if (name_match(de, name)) {
-        current_dir_cluster = de->start_cluster;
-        update_current_path_on_cd(name);
-        return 0;
-      }
-    }
-  }
-  kprintf("[cd] directory not found: %s\n", name);
-  return -1;
-}
-
-int name_match(const struct dir_entry *de, const char *name) {
-  char fat_name[9];
-  memset(fat_name, 0, sizeof(fat_name));
-
-  // name[8] をコピー（末尾スペース除去）
-  for (int i = 0; i < 8; i++) {
-    if (de->name[i] == ' ')
+  // root_dir 空きエントリ探索
+  int entry_index = -1;
+  for (int i = 0; i < BPB_RootEntCnt; i++) {
+    if (root_dir[i].name[0] == 0x00 || root_dir[i].name[0] == 0xE5) {
+      entry_index = i;
       break;
-    fat_name[i] = de->name[i];
-  }
-
-  return strcmp(fat_name, name) == 0;
-}
-
-void update_current_path_on_cd(const char *name) {
-  if (strcmp(name, "/") == 0) {
-    strcpy(current_path, "/");
-    return;
-  }
-
-  if (strcmp(name, "..") == 0) {
-    if (strcmp(current_path, "/") == 0)
-      return;
-
-    // 末尾の /foo を削除
-    char *p = strrchr(current_path, '/');
-    if (p == current_path) {
-      // "/foo" → "/"
-      current_path[1] = '\0';
-    } else if (p) {
-      *p = '\0';
     }
-    return;
+  }
+  if (entry_index < 0) {
+    kprintf("[FAT16] ERROR: Root directory is full. Cannot create new file.\n");
+    return -1;
   }
 
-  // 通常の cd foo
-  if (strcmp(current_path, "/") != 0)
-    strcat(current_path, "/");
-  strcat(current_path, name);
-}
+  // 最初のクラスタ確保
+  int free_cluster = -1;
+  for (int i = 2; i < FAT_ENTRY_NUM; i++) {
+    if (fat[i] == 0x0000) {
+      free_cluster = i;
+      break;
+    }
+  }
+  if (free_cluster < 0) {
+    kprintf("[FAT16] ERROR: no free FAT cluster.\n");
+    return -1;
+  }
 
-void print_working_directory(void) { kprintf("%s\n", current_path); }
+  // ディレクトリエントリの設定
+  struct dir_entry *de = &root_dir[entry_index];
+  memset(de->name, ' ', 8);
+  memset(de->ext, ' ', 3);
+
+  int n = 0;
+  while (n < 8 && name[n] && name[n] != '.') {
+    de->name[n] = name[n];
+    n++;
+  }
+  if (name[n] == '.') {
+    n++;
+    for (int e = 0; e < 3 && name[n + e]; e++) {
+      de->ext[e] = name[n + e];
+    }
+  }
+
+  de->start_cluster = free_cluster;
+  de->size = size;
+
+  // データ書き込み
+  uint32_t remaining = size;
+  uint16_t cluster = free_cluster;
+  uint8_t cluster_buf[BPB_BytsPerSec * BPB_SecPerClus];
+
+  while (remaining > 0) {
+    uint32_t to_write = remaining;
+    if (to_write > BPB_BytsPerSec * BPB_SecPerClus)
+      to_write = BPB_BytsPerSec * BPB_SecPerClus;
+
+    if (data) {
+      memcpy(cluster_buf, data, to_write);
+      data += to_write;
+    } else {
+      memset(cluster_buf, 0, to_write);
+    }
+    if (to_write < BPB_BytsPerSec * BPB_SecPerClus)
+      memset(cluster_buf + to_write, 0,
+             BPB_BytsPerSec * BPB_SecPerClus - to_write);
+
+    write_cluster(cluster, cluster_buf);
+    remaining -= to_write;
+
+    if (remaining > 0) {
+      // 次クラスタを確保
+      uint16_t next_cluster = 0;
+      for (uint16_t i = 2; i < FAT_ENTRY_NUM; i++) {
+        if (fat[i] == 0x0000) {
+          next_cluster = i;
+          break;
+        }
+      }
+      if (next_cluster == 0) {
+        kprintf("[FAT16] ERROR: not enough clusters.\n");
+        return -1;
+      }
+      fat[cluster] = next_cluster;
+      fat[next_cluster] = 0xFFFF;
+      cluster = next_cluster;
+    } else {
+      fat[cluster] = 0xFFFF; // 最後のクラスタ
+    }
+  }
+
+  // 書き戻し
+  write_fat_to_disk();
+  write_root_dir_to_disk();
+
+  kprintf("[FAT16] File created: %s at entry %d, cluster %d\n", name,
+          entry_index, free_cluster);
+  return 0;
+}

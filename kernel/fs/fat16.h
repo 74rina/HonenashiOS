@@ -76,6 +76,4 @@ void list_files(const char *dir_path);
 void concatenate(const char *filename);
 int make_dir(uint16_t parent_cluster, const char *name);
 int current_directory(const char *name);
-int name_match(const struct dir_entry *de, const char *name);
-void update_current_path_on_cd(const char *name);
 void print_working_directory(void);
