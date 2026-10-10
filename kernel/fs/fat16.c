@@ -31,24 +31,309 @@ uint16_t fat[FAT_ENTRY_NUM];
 struct dir_entry root_dir[BPB_RootEntCnt];
 
 #define ATTR_DIRECTORY 0x10
+#define ATTR_LONG_NAME 0x0f
 
 void read_fat_from_disk(void);
 void write_fat_to_disk(void);
 void read_root_dir_from_disk(void);
 void write_root_dir_to_disk(void);
-uint32_t cluster_to_sector(uint16_t cluster);
 
-void read_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 0);
+void list_files(const char *dir_path) {
+  struct resolved_path resolved;
+  struct dir_entry *entries = NULL;
+  struct dir_entry subdir_entries[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  int entry_count = 0;
+  const char *display_path = dir_path;
+
+  if (resolve_path(dir_path, &resolved) == 0) {
+    if (!resolved.is_directory) {
+      kprintf("[ls] not a directory: %s\n", dir_path);
+      return;
+    }
+
+    display_path = resolved.abs_path;
+    if (resolved.target_cluster == 0) {
+      read_root_dir_from_disk();
+      entries = root_dir;
+      entry_count = BPB_RootEntCnt;
+    } else {
+      read_cluster(resolved.target_cluster, subdir_entries);
+      entries = subdir_entries;
+      entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+    }
+  } else if (strcmp(dir_path, "/") == 0 || strcmp(dir_path, ".") == 0) {
+    if (strcmp(dir_path, ".") == 0 && current_dir_cluster != 0) {
+      read_cluster(current_dir_cluster, subdir_entries);
+      entries = subdir_entries;
+      entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+    } else {
+      read_root_dir_from_disk();
+      entries = root_dir;
+      entry_count = BPB_RootEntCnt;
+    }
+  } else {
+    const char *lookup_name = dir_path;
+    uint16_t base_cluster = current_dir_cluster;
+
+    if (dir_path[0] == '/') {
+      lookup_name = dir_path + 1;
+      base_cluster = 0;
+    }
+
+    if (*lookup_name == '\0') {
+      read_root_dir_from_disk();
+      entries = root_dir;
+      entry_count = BPB_RootEntCnt;
+    } else if (strrchr(lookup_name, '/')) {
+      kprintf("[ls] nested path is not supported yet: %s\n", dir_path);
+      return;
+    } else {
+      struct dir_entry *target = iterate_dir(base_cluster, lookup_name);
+
+      if (!target) {
+        kprintf("[ls] directory not found: %s\n", dir_path);
+        return;
+      }
+
+      if (!(target->attr & ATTR_DIRECTORY)) {
+        kprintf("[ls] not a directory: %s\n", dir_path);
+        return;
+      }
+
+      read_cluster(target->start_cluster, subdir_entries);
+      entries = subdir_entries;
+      entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+    }
+  }
+
+  kprintf("=== Directory: %s ===\n", display_path);
+  for (int i = 0; i < entry_count; i++) {
+    struct dir_entry *de = &entries[i];
+
+    if (de->name[0] == 0x00)
+      break;
+    if ((uint8_t)de->name[0] == 0xE5)
+      continue;
+    if ((de->attr & ATTR_LONG_NAME) == ATTR_LONG_NAME)
+      continue;
+
+    char name[13];
+    int p = 0;
+
+    for (int j = 0; j < 8; j++) {
+      if (de->name[j] != ' ')
+        name[p++] = de->name[j];
+    }
+
+    if (de->ext[0] != ' ') {
+      name[p++] = '.';
+      for (int j = 0; j < 3; j++) {
+        if (de->ext[j] != ' ')
+          name[p++] = de->ext[j];
+      }
+    }
+
+    name[p] = '\0';
+
+    kprintf("%s", name);
+    if (de->attr & ATTR_DIRECTORY)
+      kprintf("  <DIR>");
+    else
+      kprintf("  size=%d", (int)de->size);
+    kprintf("  cluster=%d\n", (int)de->start_cluster);
   }
 }
-void write_cluster(uint16_t cluster, void *buf) {
-  for (int i = 0; i < BPB_SecPerClus; i++) {
-    read_write_disk((uint8_t *)buf + i * BPB_BytsPerSec,
-                    cluster_to_sector(cluster) + i, 1);
+
+int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
+  read_fat_from_disk();
+
+  if (start_cluster < 2 || start_cluster >= FAT_ENTRY_NUM)
+    return -1;
+
+  uint32_t remaining = size;
+  uint16_t cluster = start_cluster;
+  uint8_t cluster_buf[BPB_BytsPerSec * BPB_SecPerClus];
+
+  while (cluster != 0xFFFF && remaining > 0) {
+    read_cluster(cluster, cluster_buf);
+
+    uint32_t to_copy = remaining;
+    if (to_copy > BPB_BytsPerSec * BPB_SecPerClus)
+      to_copy = BPB_BytsPerSec * BPB_SecPerClus;
+
+    memcpy(buf, cluster_buf, to_copy);
+    buf += to_copy;
+    remaining -= to_copy;
+
+    cluster = fat[cluster];
   }
+
+  return 0;
+}
+
+void concatenate(const char *filename) {
+  struct resolved_path resolved;
+  struct dir_entry *target = NULL;
+
+  if (resolve_path(filename, &resolved) == 0 && resolved.target_exists) {
+    target = &resolved.target;
+  } else {
+    target = iterate_dir(current_dir_cluster, filename);
+  }
+
+  if (!target) {
+    kprintf("[cat] file not found: %s\n", filename);
+    return;
+  }
+
+  if (target->attr & ATTR_DIRECTORY) {
+    kprintf("[cat] is a directory: %s\n", filename);
+    return;
+  }
+
+  // サイズ0なら空ファイル
+  if (target->size == 0) {
+    kprintf("[cat] (empty file)\n");
+    return;
+  }
+
+  // ファイルサイズぶんのバッファを確保
+  uint32_t size = target->size;
+  uint8_t buf[size]; // ※簡易実装としてスタック確保
+
+  // read_file() でデータ領域を読む
+  if (read_file(target->start_cluster, buf, size) < 0) {
+    kprintf("[cat] read error.\n");
+    return;
+  }
+
+  // ファイル内容をそのまま表示
+  kprintf("===== cat: file content =====\n");
+  for (uint32_t i = 0; i < size; i++) {
+    putchar(buf[i]);
+  }
+  kprintf("\n===== end =====\n");
+}
+
+int current_directory(const char *name) {
+  struct resolved_path resolved;
+
+  if (resolve_path(name, &resolved) < 0) {
+    kprintf("[cd] directory not found: %s\n", name);
+    return -1;
+  }
+
+  if (!resolved.is_directory) {
+    kprintf("[cd] not a directory: %s\n", name);
+    return -1;
+  }
+
+  current_dir_cluster = resolved.target_cluster;
+  strcpy(current_path, resolved.abs_path);
+  return 0;
+}
+
+void print_working_directory(void) { kprintf("%s\n", current_path); }
+
+// サブディレクトリを作る
+int make_dir(uint16_t parent_cluster, const char *name) {
+  read_fat_from_disk();
+  read_root_dir_from_disk();
+
+  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  struct dir_entry *parent_entries = NULL;
+  int parent_entry_count = 0;
+
+  /* ===== 親ディレクトリの実体を決定 ===== */
+  if (parent_cluster == 0) {
+    // ルートディレクトリ
+    parent_entries = root_dir;
+    parent_entry_count = BPB_RootEntCnt;
+  } else {
+    // サブディレクトリ
+    read_cluster(parent_cluster, buf);
+    parent_entries = buf;
+    parent_entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
+  }
+
+  /* ===== 空きエントリ探索 ===== */
+  int entry_index = -1;
+  for (int i = 0; i < parent_entry_count; i++) {
+    if (parent_entries[i].name[0] == 0x00 ||
+        (uint8_t)parent_entries[i].name[0] == 0xE5) {
+      entry_index = i;
+      break;
+    }
+  }
+
+  if (entry_index < 0) {
+    kprintf("[FAT16] ERROR: Directory full.\n");
+    return -1;
+  }
+
+  /* ===== 空きクラスタ探索 ===== */
+  uint16_t new_cluster = 0;
+  for (uint16_t i = 2; i < FAT_ENTRY_NUM; i++) {
+    if (fat[i] == 0x0000) {
+      new_cluster = i;
+      break;
+    }
+  }
+
+  if (new_cluster == 0) {
+    kprintf("[FAT16] ERROR: No free cluster.\n");
+    return -1;
+  }
+
+  fat[new_cluster] = 0xFFFF; // EOC
+
+  /* ===== 親ディレクトリにエントリ追加 ===== */
+  struct dir_entry *de = &parent_entries[entry_index];
+  memset(de, 0, sizeof(struct dir_entry));
+  memset(de->name, ' ', 8);
+  memset(de->ext, ' ', 3);
+
+  int n = 0;
+  while (n < 8 && name[n] && name[n] != '.') {
+    de->name[n] = name[n];
+    n++;
+  }
+
+  de->attr = 0x10; // ATTR_DIRECTORY
+  de->start_cluster = new_cluster;
+  de->size = 0;
+
+  /* ===== 新ディレクトリの中身を作る ===== */
+  struct dir_entry newbuf[BPB_BytsPerSec / sizeof(struct dir_entry)];
+  memset(newbuf, 0, sizeof(newbuf));
+
+  // "."
+  memset(newbuf[0].name, ' ', 8);
+  memset(newbuf[0].ext, ' ', 3);
+  newbuf[0].name[0] = '.';
+  newbuf[0].attr = 0x10;
+  newbuf[0].start_cluster = new_cluster;
+
+  // ".."
+  memset(newbuf[1].name, ' ', 8);
+  memset(newbuf[1].ext, ' ', 3);
+  newbuf[1].name[0] = '.';
+  newbuf[1].name[1] = '.';
+  newbuf[1].attr = 0x10;
+  newbuf[1].start_cluster = parent_cluster;
+
+  /* ===== 書き戻し ===== */
+  write_cluster(new_cluster, newbuf);
+  write_fat_to_disk();
+
+  if (parent_cluster == 0) {
+    write_root_dir_to_disk();
+  } else {
+    write_cluster(parent_cluster, parent_entries);
+  }
+
+  kprintf("[FAT16] Directory created: %s (cluster %d)\n", name, new_cluster);
+  return 0;
 }
 
 // ファイルを作る
@@ -154,314 +439,3 @@ int create_file(const char *name, const uint8_t *data, uint32_t size) {
           entry_index, free_cluster);
   return 0;
 }
-
-void list_root_dir() {
-  // 1. ディスクから最新の root_dir を読み込む
-  read_root_dir_from_disk();
-
-  kprintf("=== Root Directory ===\n");
-
-  for (int i = 0; i < BPB_RootEntCnt; i++) {
-    // 未使用エントリ → ここから先は全部空
-    if (root_dir[i].name[0] == 0x00) {
-      break;
-    }
-    // 削除済み
-    if (root_dir[i].name[0] == 0xE5) {
-      continue;
-    }
-
-    // 2. ファイル名（8 + 3）を組み立て
-    char name[13];
-    int p = 0;
-
-    // name（8文字）
-    for (int j = 0; j < 8; j++) {
-      if (root_dir[i].name[j] != ' ')
-        name[p++] = root_dir[i].name[j];
-    }
-
-    // 拡張子
-    if (root_dir[i].ext[0] != ' ') {
-      name[p++] = '.';
-      for (int j = 0; j < 3; j++) {
-        if (root_dir[i].ext[j] != ' ')
-          name[p++] = root_dir[i].ext[j];
-      }
-    }
-
-    name[p] = '\0';
-
-    // 3. 表示
-    kprintf("%s  size=", name);
-    kprintf("%d", (int)root_dir[i].size);
-    kprintf("  cluster=");
-    kprintf("%d\n", (int)root_dir[i].start_cluster);
-  }
-}
-
-// ファイル読み込んでRAMに置く
-int read_file(uint16_t start_cluster, uint8_t *buf, uint32_t size) {
-  read_fat_from_disk();
-
-  if (start_cluster < 2 || start_cluster >= FAT_ENTRY_NUM)
-    return -1;
-
-  uint32_t remaining = size;
-  uint16_t cluster = start_cluster;
-  uint8_t cluster_buf[BPB_BytsPerSec * BPB_SecPerClus];
-
-  while (cluster != 0xFFFF && remaining > 0) {
-    read_cluster(cluster, cluster_buf);
-
-    uint32_t to_copy = remaining;
-    if (to_copy > BPB_BytsPerSec * BPB_SecPerClus)
-      to_copy = BPB_BytsPerSec * BPB_SecPerClus;
-
-    memcpy(buf, cluster_buf, to_copy);
-    buf += to_copy;
-    remaining -= to_copy;
-
-    cluster = fat[cluster];
-  }
-
-  return 0;
-}
-
-void concatenate(const char *filename) {
-  struct dir_entry *target = iterate_dir(current_dir_cluster, filename);
-
-  if (!target) {
-    kprintf("[cat] file not found: %s\n", filename);
-    return;
-  }
-
-  if (target->attr & ATTR_DIRECTORY) {
-    kprintf("[cat] is a directory: %s\n", filename);
-    return;
-  }
-
-  // サイズ0なら空ファイル
-  if (target->size == 0) {
-    kprintf("[cat] (empty file)\n");
-    return;
-  }
-
-  // ファイルサイズぶんのバッファを確保
-  uint32_t size = target->size;
-  uint8_t buf[size]; // ※簡易実装としてスタック確保
-
-  // read_file() でデータ領域を読む
-  // BUG: Cannot read user data in supervisor mode via `strcmp`
-  if (read_file(target->start_cluster, buf, size) < 0) {
-    kprintf("[cat] read error.\n");
-    return;
-  }
-
-  // ファイル内容をそのまま表示
-  kprintf("===== cat: file content =====\n");
-  for (uint32_t i = 0; i < size; i++) {
-    putchar(buf[i]);
-  }
-  kprintf("\n===== end =====\n");
-}
-
-// サブディレクトリを作る
-int make_dir(uint16_t parent_cluster, const char *name) {
-  read_fat_from_disk();
-  read_root_dir_from_disk();
-
-  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
-  struct dir_entry *parent_entries = NULL;
-  int parent_entry_count = 0;
-
-  /* ===== 親ディレクトリの実体を決定 ===== */
-  if (parent_cluster == 0) {
-    // ルートディレクトリ
-    parent_entries = root_dir;
-    parent_entry_count = BPB_RootEntCnt;
-  } else {
-    // サブディレクトリ
-    read_cluster(parent_cluster, buf);
-    parent_entries = buf;
-    parent_entry_count = BPB_BytsPerSec / sizeof(struct dir_entry);
-  }
-
-  /* ===== 空きエントリ探索 ===== */
-  int entry_index = -1;
-  for (int i = 0; i < parent_entry_count; i++) {
-    if (parent_entries[i].name[0] == 0x00 ||
-        (uint8_t)parent_entries[i].name[0] == 0xE5) {
-      entry_index = i;
-      break;
-    }
-  }
-
-  if (entry_index < 0) {
-    kprintf("[FAT16] ERROR: Directory full.\n");
-    return -1;
-  }
-
-  /* ===== 空きクラスタ探索 ===== */
-  uint16_t new_cluster = 0;
-  for (uint16_t i = 2; i < FAT_ENTRY_NUM; i++) {
-    if (fat[i] == 0x0000) {
-      new_cluster = i;
-      break;
-    }
-  }
-
-  if (new_cluster == 0) {
-    kprintf("[FAT16] ERROR: No free cluster.\n");
-    return -1;
-  }
-
-  fat[new_cluster] = 0xFFFF; // EOC
-
-  /* ===== 親ディレクトリにエントリ追加 ===== */
-  struct dir_entry *de = &parent_entries[entry_index];
-  memset(de, 0, sizeof(struct dir_entry));
-  memset(de->name, ' ', 8);
-  memset(de->ext, ' ', 3);
-
-  int n = 0;
-  while (n < 8 && name[n] && name[n] != '.') {
-    de->name[n] = name[n];
-    n++;
-  }
-
-  de->attr = 0x10; // ATTR_DIRECTORY
-  de->start_cluster = new_cluster;
-  de->size = 0;
-
-  /* ===== 新ディレクトリの中身を作る ===== */
-  struct dir_entry newbuf[BPB_BytsPerSec / sizeof(struct dir_entry)];
-  memset(newbuf, 0, sizeof(newbuf));
-
-  // "."
-  memset(newbuf[0].name, ' ', 8);
-  memset(newbuf[0].ext, ' ', 3);
-  newbuf[0].name[0] = '.';
-  newbuf[0].attr = 0x10;
-  newbuf[0].start_cluster = new_cluster;
-
-  // ".."
-  memset(newbuf[1].name, ' ', 8);
-  memset(newbuf[1].ext, ' ', 3);
-  newbuf[1].name[0] = '.';
-  newbuf[1].name[1] = '.';
-  newbuf[1].attr = 0x10;
-  newbuf[1].start_cluster = parent_cluster;
-
-  /* ===== 書き戻し ===== */
-  write_cluster(new_cluster, newbuf);
-  write_fat_to_disk();
-
-  if (parent_cluster == 0) {
-    write_root_dir_to_disk();
-  } else {
-    write_cluster(parent_cluster, parent_entries);
-  }
-
-  kprintf("[FAT16] Directory created: %s (cluster %d)\n", name, new_cluster);
-  return 0;
-}
-
-// カレントディレクトリを移動させる
-int current_directory(const char *name) {
-  if (strcmp(name, "/") == 0) {
-    current_dir_cluster = 0;
-    update_current_path_on_cd(name);
-    return 0;
-  }
-
-  struct dir_entry buf[BPB_BytsPerSec / sizeof(struct dir_entry)];
-
-  if (current_dir_cluster == 0) {
-    // 0なのでルート
-    for (int i = 0; i < BPB_RootEntCnt; i++) {
-      struct dir_entry *de = &root_dir[i];
-      if (de->name[0] == 0x00)
-        break;
-      if (!(de->attr & 0x10))
-        continue;
-      // cd <名前>
-      if (name_match(de, name)) {
-        current_dir_cluster = de->start_cluster;
-        update_current_path_on_cd(name);
-        return 0;
-      }
-    }
-  } else {
-    read_cluster(current_dir_cluster, buf);
-    for (int i = 0; i < BPB_BytsPerSec / sizeof(struct dir_entry); i++) {
-      struct dir_entry *de = &buf[i];
-      if (de->name[0] == 0x00)
-        break;
-      if (!(de->attr & 0x10))
-        continue;
-
-      // cd ..
-      if (name[0] == '.' && name[1] == '.' && name[2] == '\0') {
-        if (de->name[0] == '.' && de->name[1] == '.') {
-          current_dir_cluster = de->start_cluster;
-          update_current_path_on_cd(name);
-          return 0;
-        }
-        continue;
-      }
-
-      // cd <名前>
-      if (name_match(de, name)) {
-        current_dir_cluster = de->start_cluster;
-        update_current_path_on_cd(name);
-        return 0;
-      }
-    }
-  }
-  kprintf("[cd] directory not found: %s\n", name);
-  return -1;
-}
-
-int name_match(const struct dir_entry *de, const char *name) {
-  char fat_name[9];
-  memset(fat_name, 0, sizeof(fat_name));
-
-  // name[8] をコピー（末尾スペース除去）
-  for (int i = 0; i < 8; i++) {
-    if (de->name[i] == ' ')
-      break;
-    fat_name[i] = de->name[i];
-  }
-
-  return strcmp(fat_name, name) == 0;
-}
-
-void update_current_path_on_cd(const char *name) {
-  if (strcmp(name, "/") == 0) {
-    strcpy(current_path, "/");
-    return;
-  }
-
-  if (strcmp(name, "..") == 0) {
-    if (strcmp(current_path, "/") == 0)
-      return;
-
-    // 末尾の /foo を削除
-    char *p = strrchr(current_path, '/');
-    if (p == current_path) {
-      // "/foo" → "/"
-      current_path[1] = '\0';
-    } else if (p) {
-      *p = '\0';
-    }
-    return;
-  }
-
-  // 通常の cd foo
-  if (strcmp(current_path, "/") != 0)
-    strcat(current_path, "/");
-  strcat(current_path, name);
-}
-
-void print_working_directory(void) { kprintf("%s\n", current_path); }

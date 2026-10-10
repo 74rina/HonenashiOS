@@ -48,7 +48,16 @@ void main(void) {
       sys_exit();
 
     else if (strcmp(cmdline, "ls") == 0)
-      sys_list_root_dir();
+      sys_list_file(".");
+
+    else if (strncmp(cmdline, "ls ", 3) == 0) {
+      const char *dir_path = cmdline + 3;
+      if (*dir_path == '\0') {
+        printf("usage: ls [path]\n");
+      } else {
+        sys_list_file(dir_path);
+      }
+    }
 
     else if (strncmp(cmdline, "cat ", 4) == 0) {
       const char *filename = cmdline + 4;

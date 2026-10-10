@@ -48,7 +48,9 @@ int printf(const char *fmt, ...) {
   return ret;
 }
 
-void sys_list_root_dir() { syscall(SYS_LIST_FILE, 0, 0, 0); }
+void sys_list_file(const char *dir_path) {
+  syscall(SYS_LIST_FILE, (int)dir_path, 0, 0);
+}
 
 void sys_concatenate(const char *filename) {
   syscall(SYS_CONCATENATE, (int)filename, 0, 0);
