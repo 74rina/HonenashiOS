@@ -29,16 +29,6 @@ void handle_syscall(struct trap_frame *f) {
     yield();
     PANIC("unreachable");
 
-  case SYS_CREATE_FILE:
-    while (1) {
-      /*
-      long filename = getchar()もどき
-      create_file(filename, filenameの長さ);
-      yield();
-      */
-    }
-    break;
-
   case SYS_LIST_FILE: {
     char dir_path[MAX_SYSCALL_PATH];
     if (strncpy_from_user(dir_path, (const char *)f->a0, sizeof(dir_path)) < 0)
@@ -73,6 +63,24 @@ void handle_syscall(struct trap_frame *f) {
     yield();
     break;
   }
+
+  case SYS_CREATE_DIRECTORY:
+    while (1) {
+      /*
+      make_dir()
+      */
+    }
+    break;
+
+  case SYS_CREATE_FILE:
+    while (1) {
+      /*
+      long filename = getchar()もどき
+      create_file(filename, filenameの長さ);
+      yield();
+      */
+    }
+    break;
 
   default:
     PANIC("unexpected syscall a3=%x\n", f->a3);
