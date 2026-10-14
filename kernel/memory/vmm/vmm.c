@@ -1,6 +1,7 @@
-#include "../kernel.h"
+#include "vmm.h"
+#include "../../kernel.h"
 
-// Virtual Memory
+// TODO: page table walk
 void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags) {
   if (!is_aligned(vaddr, PAGE_SIZE))
     PANIC("unaligned vaddr %x", vaddr);

@@ -1,5 +1,5 @@
-#include "../kernel.h"
-#include "mem.h"
+#include "pmm.h"
+#include "../../kernel.h"
 
 extern char __free_ram[], __free_ram_end[];
 

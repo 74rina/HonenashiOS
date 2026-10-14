@@ -110,7 +110,7 @@ void handle_trap(struct trap_frame *f) {
   WRITE_CSR(sepc, user_pc);
 }
 
-// process_switch_test
+// TODO: tests for context switching.
 struct process *proc_a;
 struct process *proc_b;
 

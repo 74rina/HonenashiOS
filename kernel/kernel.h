@@ -1,6 +1,7 @@
 #pragma once
 #include "../common/common.h"
-#include "memory/mem.h"
+#include "memory/pmm/pmm.h"
+#include "memory/vmm/vmm.h"
 
 #define PANIC(fmt, ...)                                                        \
   do {                                                                         \
