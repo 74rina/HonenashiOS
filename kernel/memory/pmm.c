@@ -15,6 +15,10 @@ static void pmm_set_used(size_t index) {
   pmm.bitmap[index / 8] |= 1 << (index % 8);
 }
 
+static void pmm_set_free(size_t index) {
+  pmm.bitmap[index / 8] &= ~(1 << (index % 8));
+}
+
 static void pmm_init(void) {
   size_t total_pages =
       ((paddr_t)__free_ram_end - (paddr_t)__free_ram) / PAGE_SIZE;
@@ -29,6 +33,7 @@ static void pmm_init(void) {
   pmm_initialized = true;
 }
 
+// physically malloc.
 paddr_t alloc_pages(uint32_t n) {
   if (!pmm_initialized)
     pmm_init();
@@ -39,6 +44,7 @@ paddr_t alloc_pages(uint32_t n) {
   size_t run_start = 0;
   size_t run_length = 0;
 
+  // first fit
   for (size_t i = 0; i < pmm.page_count; i++) {
     if (pmm_is_used(i)) {
       run_length = 0;
@@ -61,4 +67,33 @@ paddr_t alloc_pages(uint32_t n) {
   }
 
   PANIC("out of memory!!!!!");
+}
+
+void free_pages(paddr_t paddr, uint32_t n) {
+  if (!pmm_initialized)
+    pmm_init();
+
+  if (n == 0)
+    PANIC("free_pages: n must be greater than 0");
+
+  if (!is_aligned(paddr, PAGE_SIZE))
+    PANIC("free_pages: unaligned paddr %x", paddr);
+
+  paddr_t pmm_end = pmm.start + pmm.page_count * PAGE_SIZE;
+  if (paddr < pmm.start || paddr >= pmm_end)
+    PANIC("free_pages: paddr out of range %x", paddr);
+
+  size_t index = (paddr - pmm.start) / PAGE_SIZE;
+  if (index + n > pmm.page_count)
+    PANIC("free_pages: range out of bounds");
+
+  for (size_t i = 0; i < n; i++) {
+    if (!pmm_is_used(index + i))
+      PANIC("free_pages: page is already free");
+  }
+
+  memset((void *)paddr, 0, n * PAGE_SIZE);
+
+  for (size_t i = 0; i < n; i++)
+    pmm_set_free(index + i);
 }
