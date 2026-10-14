@@ -12,6 +12,7 @@ $OBJCOPY -Ibinary -Oelf32-littleriscv user/shell.bin user/shell.bin.o
 
 $CC $CFLAGS -Wl,-Tkernel.ld -Wl,-Map=kernel.map -o kernel/kernel.elf \
     kernel/kernel.c kernel/process.c kernel/sbi.c kernel/syscall.c common/common.c \
+    kernel/memory/pmm.c kernel/memory/vmm.c \
     kernel/drivers/virtio.c kernel/fs/fat16.c kernel/fs/helpers.c \
     user/shell.bin.o
 
