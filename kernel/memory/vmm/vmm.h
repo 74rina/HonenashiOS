@@ -1,6 +1,7 @@
 #pragma once
 #include "../../../common/common.h"
 
+// Sv32 flags
 #define SATP_SV32 (1u << 31)
 #define PAGE_V (1 << 0) // 有効化ビット
 #define PAGE_R (1 << 1) // 読み込み可能
@@ -10,4 +11,10 @@
 
 #define USER_BASE 0x1000000
 
-void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags);
+typedef uint32_t pte_t;
+
+typedef struct {
+  pte_t entries[1024];
+} page_table_t;
+
+void map_page(page_table_t *root, vaddr_t vaddr, paddr_t paddr, uint32_t flags);

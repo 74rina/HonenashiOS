@@ -46,7 +46,7 @@ struct process *create_process(const void *image, size_t image_size) {
   *--sp = 0;                    // s0
   *--sp = (uint32_t)user_entry; // ra
 
-  uint32_t *page_table = (uint32_t *)alloc_pages(1);
+  page_table_t *page_table = (page_table_t *)alloc_pages(1);
 
   // カーネルのページをマッピングする
   for (paddr_t paddr = (paddr_t)__kernel_base; paddr < (paddr_t)__free_ram_end;
