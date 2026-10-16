@@ -1,6 +1,12 @@
 #include "vmm.h"
 #include "../../kernel.h"
 
+/*
+ * create_process()は[__kernel_base, __free_ram_end)をIdentity Mappingする。
+ * PMMの管理範囲[__free_ram + bitmap予約領域, __free_ram_end)もこの範囲に
+ * 含まれるため、カーネルはPMMが確保する全物理ページへ直接読み書きできる。
+ */
+
 void map_page(page_table_t *root, vaddr_t vaddr, paddr_t paddr,
               uint32_t flags) {
   if (!root)
