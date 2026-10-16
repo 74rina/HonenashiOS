@@ -18,3 +18,4 @@ typedef struct {
 } page_table_t;
 
 void map_page(page_table_t *root, vaddr_t vaddr, paddr_t paddr, uint32_t flags);
+void unmap_page(page_table_t *root, vaddr_t vaddr);
