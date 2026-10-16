@@ -1,4 +1,8 @@
 /*
+全体のアーキテクチャ
+heap (kmalloc) <- vmm (map_page) <- pmm (alloc_pages)
+
+
 ・プロセスを新規作成したとき、
 そのページテーブルがfree_ram（物理メモリ上）に置かれる。
 （↑alloc_pagesで確保する）
